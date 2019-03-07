@@ -1,0 +1,9 @@
+[package]
+name = "lilv"
+version = "0.0.0"
+authors = ["Henna Haahti <grejppi@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+libc = "0.2"
+lv2_raw = "0.2"
