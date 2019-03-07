@@ -14,6 +14,7 @@ extern "C" {
     fn lilv_plugins_begin(plugins: *const Void) -> *mut Void;
     fn lilv_plugins_is_end(plugins: *const Void, i: *mut Void) -> u8;
     fn lilv_plugins_next(plugins: *const Void, i: *mut Void) -> *mut Void;
+    fn lilv_plugins_size(plugins: *const Void) -> u32;
 }
 
 pub struct Plugins {
@@ -64,6 +65,10 @@ impl Plugins {
             lilv_plugins_is_end,
             lilv_plugins_next,
         )
+    }
+
+    pub fn size(&self) -> usize {
+        unsafe { lilv_plugins_size(self.plugins) as usize }
     }
 }
 

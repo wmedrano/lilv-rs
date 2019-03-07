@@ -16,8 +16,8 @@ are wrapped, and those that aren't.
 
 . | n | %
 --- | --- | ---
-**done** | 50 | ~30
-**not done** | 119 |
+**done** | 59 | ~34
+**not done** | 110 |
 **total** | 169 |
 
 ### Done
@@ -41,6 +41,7 @@ are wrapped, and those that aren't.
     lilv_new_float
     lilv_new_bool
     lilv_port_is_a
+    lilv_plugins_size
     lilv_plugins_begin
     lilv_plugins_get
     lilv_plugins_next
@@ -72,8 +73,16 @@ are wrapped, and those that aren't.
     lilv_instance_run
     lilv_instance_deactivate
     lilv_instance_free
+    lilv_nodes_free
+    lilv_nodes_size
+    lilv_nodes_begin
+    lilv_nodes_get
+    lilv_nodes_next
+    lilv_nodes_is_end
+    lilv_nodes_contains
+    lilv_nodes_merge
 
-### Missing (119)
+### Missing
 
     lilv_free
     lilv_uri_to_path
@@ -101,16 +110,7 @@ are wrapped, and those that aren't.
     lilv_uis_next
     lilv_uis_is_end
     lilv_uis_get_by_uri
-    lilv_nodes_free
-    lilv_nodes_size
-    lilv_nodes_begin
-    lilv_nodes_get
-    lilv_nodes_next
-    lilv_nodes_is_end
     lilv_nodes_get_first
-    lilv_nodes_get_contains
-    lilv_nodes_merge
-    lilv_plugins_size
     lilv_uis_free
     lilv_uis_size
     lilv_uis_begin

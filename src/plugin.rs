@@ -2,15 +2,19 @@ use crate::instance::Instance;
 use crate::instance::InstanceImpl;
 use crate::node::Node;
 use crate::node::Uri;
+use crate::nodes::Nodes;
 use crate::port::Port;
 use crate::world::ref_node;
 use crate::world::World;
 use crate::Void;
+use std::marker::PhantomData;
 use std::rc::Rc;
 
 #[link(name = "lilv-0")]
 extern "C" {
     fn lilv_plugin_get_uri(plugin: *const Void) -> *const Void;
+    fn lilv_plugin_get_bundle_uri(plugin: *const Void) -> *const Void;
+    fn lilv_plugin_get_data_uris(plugin: *const Void) -> *const Void;
     fn lilv_plugin_get_num_ports(plugin: *const Void) -> u32;
     fn lilv_plugin_get_port_ranges_float(
         plugin: *const Void,
@@ -34,6 +38,21 @@ pub struct Plugin {
 impl Plugin {
     pub fn get_uri(&self) -> Node<Uri> {
         ref_node(&self.world, unsafe { lilv_plugin_get_uri(self.plugin) })
+    }
+
+    pub fn get_bundle_uri(&self) -> Node<Uri> {
+        ref_node(&self.world, unsafe {
+            lilv_plugin_get_bundle_uri(self.plugin)
+        })
+    }
+
+    pub fn get_data_uris(&self) -> Nodes<Uri> {
+        Nodes {
+            nodes: unsafe { lilv_plugin_get_data_uris(self.plugin) as *mut Void },
+            world: self.world.clone(),
+            owned: false,
+            _phantom: PhantomData,
+        }
     }
 
     pub fn get_num_ports(&self) -> u32 {

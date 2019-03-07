@@ -10,6 +10,7 @@
 mod collection;
 mod instance;
 mod node;
+mod nodes;
 mod plugin;
 mod plugins;
 mod port;
@@ -18,6 +19,7 @@ mod world;
 pub use crate::collection::*;
 pub use crate::instance::*;
 pub use crate::node::*;
+pub use crate::nodes::*;
 pub use crate::plugin::*;
 pub use crate::plugins::*;
 pub use crate::port::*;
