@@ -16,8 +16,8 @@ are wrapped, and those that aren't.
 
 . | n | %
 --- | --- | ---
-**done** | 59 | ~34
-**not done** | 110 |
+**done** | 104 | ~62
+**not done** | 65 |
 **total** | 169 |
 
 ### Done
@@ -52,6 +52,27 @@ are wrapped, and those that aren't.
     lilv_plugin_get_port_ranges_float
     lilv_plugin_get_port_by_index
     lilv_plugin_instantiate
+    lilv_plugin_get_bundle_uri
+    lilv_plugin_get_data_uris
+    lilv_plugin_get_library_uri
+    lilv_plugin_get_name
+    lilv_plugin_get_value
+    lilv_plugin_has_feature
+    lilv_plugin_get_supported_features
+    lilv_plugin_get_required_features
+    lilv_plugin_get_optional_features
+    lilv_plugin_has_extension_data
+    lilv_plugin_get_extension_data
+    lilv_plugin_has_latency
+    lilv_plugin_get_latency_port_index
+    lilv_plugin_get_port_by_symbol
+    lilv_plugin_get_port_by_designation
+    lilv_plugin_get_project
+    lilv_plugin_get_author_name
+    lilv_plugin_get_author_email
+    lilv_plugin_get_author_homepage
+    lilv_plugin_is_replaced
+    lilv_plugin_get_related
     lilv_node_duplicate
     lilv_node_equals
     lilv_node_is_uri
@@ -123,31 +144,10 @@ are wrapped, and those that aren't.
     lilv_world_get_plugin_classes
     lilv_world_find_nodes
     lilv_plugin_verify
-    lilv_plugin_get_bundle_uri
-    lilv_plugin_get_data_uris
-    lilv_plugin_get_library_uri
-    lilv_plugin_get_name
     lilv_plugin_get_class
-    lilv_plugin_get_value
-    lilv_plugin_has_feature
-    lilv_plugin_get_supported_features
-    lilv_plugin_get_required_features
-    lilv_plugin_get_optional_features
-    lilv_plugin_has_extension_data
-    lilv_plugin_get_extension_data
     lilv_plugin_get_num_ports_of_class
-    lilv_plugin_has_latency
-    lilv_plugin_get_latency_port_index
-    lilv_plugin_get_port_by_symbol
-    lilv_plugin_get_port_by_designation
-    lilv_plugin_get_project
-    lilv_plugin_get_author_name
-    lilv_plugin_get_author_email
-    lilv_plugin_get_author_homepage
-    lilv_plugin_is_replaced
     lilv_plugin_write_description
     lilv_plugin_write_manifest_entry
-    lilv_plugin_get_related
     lilv_port_get_node
     lilv_port_get_value
     lilv_port_get

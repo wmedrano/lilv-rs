@@ -1,12 +1,15 @@
 use crate::instance::Instance;
 use crate::instance::InstanceImpl;
+use crate::node::Any;
 use crate::node::Node;
 use crate::node::Uri;
 use crate::nodes::Nodes;
 use crate::port::Port;
+use crate::world::new_node;
 use crate::world::ref_node;
 use crate::world::World;
 use crate::Void;
+use std::ptr;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -15,7 +18,30 @@ extern "C" {
     fn lilv_plugin_get_uri(plugin: *const Void) -> *const Void;
     fn lilv_plugin_get_bundle_uri(plugin: *const Void) -> *const Void;
     fn lilv_plugin_get_data_uris(plugin: *const Void) -> *const Void;
+    fn lilv_plugin_get_library_uri(plugin: *const Void) -> *const Void;
+    fn lilv_plugin_get_name(plugin: *const Void) -> *mut Void;
+    fn lilv_plugin_get_value(plugin: *const Void, predicate: *const Void) -> *mut Void;
+    fn lilv_plugin_has_feature(plugin: *const Void, feature: *const Void) -> u8;
+    fn lilv_plugin_get_supported_features(plugin: *const Void) -> *mut Void;
+    fn lilv_plugin_get_required_features(plugin: *const Void) -> *mut Void;
+    fn lilv_plugin_get_optional_features(plugin: *const Void) -> *mut Void;
+    fn lilv_plugin_has_extension_data(plugin: *const Void, uri: *const Void) -> u8;
+    fn lilv_plugin_get_extension_data(plugin: *const Void) -> *mut Void;
     fn lilv_plugin_get_num_ports(plugin: *const Void) -> u32;
+    fn lilv_plugin_has_latency(plugin: *const Void) -> u8;
+    fn lilv_plugin_get_latency_port_index(plugin: *const Void) -> u32;
+    fn lilv_plugin_get_port_by_symbol(plugin: *const Void, symbol: *const Void) -> *const Void;
+    fn lilv_plugin_get_port_by_designation(
+        plugin: *const Void,
+        port_class: *const Void,
+        designation: *const Void,
+    ) -> *const Void;
+    fn lilv_plugin_get_project(plugin: *const Void) -> *mut Void;
+    fn lilv_plugin_get_author_name(plugin: *const Void) -> *mut Void;
+    fn lilv_plugin_get_author_email(plugin: *const Void) -> *mut Void;
+    fn lilv_plugin_get_author_homepage(plugin: *const Void) -> *mut Void;
+    fn lilv_plugin_is_replaced(plugin: *const Void) -> u8;
+    fn lilv_plugin_get_related(plugin: *const Void, tyep: *const Void) -> *mut Void;
     fn lilv_plugin_get_port_ranges_float(
         plugin: *const Void,
         min_values: *mut f32,
@@ -55,11 +81,87 @@ impl Plugin {
         }
     }
 
+    pub fn get_library_uri(&self) -> Node<Uri> {
+        ref_node(&self.world, unsafe {
+            lilv_plugin_get_library_uri(self.plugin)
+        })
+    }
+
+    pub fn get_name(&self) -> Node<crate::node::String> {
+        new_node(&self.world, unsafe { lilv_plugin_get_name(self.plugin) })
+    }
+
+    pub fn get_value(&self, predicate: &Node<Any>) -> Option<Nodes<Any>> {
+        let nodes = unsafe { lilv_plugin_get_value(self.plugin, predicate.node) };
+        if nodes.is_null() {
+            None
+        } else {
+            Some(Nodes {
+                nodes,
+                world: self.world.clone(),
+                owned: true,
+                _phantom: PhantomData,
+            })
+        }
+    }
+
+    pub fn has_feature(&self, feature: &Node<Uri>) -> bool {
+        unsafe { lilv_plugin_has_feature(self.plugin, feature.node) != 0 }
+    }
+
+    pub fn get_supported_features(&self) -> Nodes<Uri> {
+        Nodes {
+            nodes: unsafe { lilv_plugin_get_supported_features(self.plugin) },
+            world: self.world.clone(),
+            owned: true,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn get_required_features(&self) -> Nodes<Uri> {
+        Nodes {
+            nodes: unsafe { lilv_plugin_get_required_features(self.plugin) },
+            world: self.world.clone(),
+            owned: true,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn get_optional_features(&self) -> Nodes<Uri> {
+        Nodes {
+            nodes: unsafe { lilv_plugin_get_optional_features(self.plugin) },
+            world: self.world.clone(),
+            owned: true,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn has_extension_data(&self, uri: &Node<Uri>) -> bool {
+        unsafe { lilv_plugin_has_extension_data(self.plugin, uri.node) != 0 }
+    }
+
+    pub fn get_extension_data(&self) -> Nodes<Uri> {
+        Nodes {
+            nodes: unsafe {lilv_plugin_get_extension_data(self.plugin)},
+            world: self.world.clone(),
+            owned: true,
+            _phantom: PhantomData,
+        }
+    }
+
     pub fn get_num_ports(&self) -> u32 {
         unsafe { lilv_plugin_get_num_ports(self.plugin) }
     }
 
-    pub fn get_port_by_index<'b>(&'b self, index: u32) -> Option<Port<'b>> {
+    pub fn has_latency(&self) -> bool {
+        unsafe { lilv_plugin_has_latency(self.plugin) != 0}
+    }
+
+    pub fn get_latency_port_index(&self) -> u32 {
+        unsafe { lilv_plugin_get_latency_port_index(self.plugin)}
+    }
+
+    pub fn get_port_by_index<'a>(&'a self, index: u32) -> Option<Port<'a>> {
         let ptr = unsafe { lilv_plugin_get_port_by_index(self.plugin, index) };
         if ptr.is_null() {
             None
@@ -71,16 +173,97 @@ impl Plugin {
         }
     }
 
-    pub fn get_port_ranges_float<'b, Min, Max, Def>(
+    pub fn get_port_by_symbol<'a>(&'a self, symbol: &Node<crate::node::String>) -> Option<Port<'a>> {
+        let ptr = unsafe { lilv_plugin_get_port_by_symbol(self.plugin, symbol.node) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(Port {
+                port: ptr,
+                plugin: self,
+            })
+        }
+    }
+
+    pub fn get_port_by_designation<'a, 'b, C>(&'a self, port_class: C, designation: &'b Node<Uri>) -> Option<Port<'a>>
+    where
+        C: Into<Option<&'b Node<Uri>>>,
+    {
+        let port_class = port_class.into().map_or(ptr::null(), |x| x.node);
+        let ptr = unsafe { lilv_plugin_get_port_by_designation(self.plugin, port_class, designation.node) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(Port {
+                port: ptr,
+                plugin: self,
+            })
+        }
+    }
+
+    pub fn get_project(&self) -> Option<Node<Any>> {
+        let node = unsafe { lilv_plugin_get_project(self.plugin) };
+        if node.is_null() {
+            None
+        } else {
+            Some(new_node(&self.world, node))
+        }
+    }
+
+    pub fn get_author_name(&self) -> Option<Node<crate::node::String>> {
+        let node = unsafe { lilv_plugin_get_author_name(self.plugin) };
+        if node.is_null() {
+            None
+        } else {
+            Some(new_node(&self.world, node))
+        }
+    }
+
+    pub fn get_author_email(&self) -> Option<Node<Any>> {
+        let node = unsafe { lilv_plugin_get_author_email(self.plugin) };
+        if node.is_null() {
+            None
+        } else {
+            Some(new_node(&self.world, node))
+        }
+    }
+
+    pub fn get_author_homepage(&self) -> Option<Node<Any>> {
+        let node = unsafe { lilv_plugin_get_author_homepage(self.plugin) };
+        if node.is_null() {
+            None
+        } else {
+            Some(new_node(&self.world, node))
+        }
+    }
+
+    pub fn is_replaced(&self) -> bool {
+        unsafe { lilv_plugin_is_replaced(self.plugin) != 0 }
+    }
+
+    pub fn get_related<'a, T>(&self, tyep: T) -> Nodes<Any>
+    where
+        T: Into<Option<&'a Node<Any>>>,
+    {
+        let tyep = tyep.into().map_or(ptr::null(), |x| x.node);
+        Nodes {
+            nodes: unsafe { lilv_plugin_get_related(self.plugin, tyep) },
+            world: self.world.clone(),
+            owned: true,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn get_port_ranges_float<'a, Min, Max, Def>(
         &self,
         min_values: Min,
         max_values: Max,
         def_values: Def,
     ) -> Result<(), ()>
     where
-        Min: Into<Option<&'b mut [f32]>>,
-        Max: Into<Option<&'b mut [f32]>>,
-        Def: Into<Option<&'b mut [f32]>>,
+        Min: Into<Option<&'a mut [f32]>>,
+        Max: Into<Option<&'a mut [f32]>>,
+        Def: Into<Option<&'a mut [f32]>>,
     {
         let min_values = min_values.into();
         let max_values = max_values.into();
