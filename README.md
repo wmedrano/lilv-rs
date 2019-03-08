@@ -16,8 +16,8 @@ are wrapped, and those that aren't.
 
 . | n | %
 --- | --- | ---
-**done** | 104 | ~62
-**not done** | 65 |
+**done** | 91 | ~54
+**not done** | 78 |
 **total** | 169 |
 
 ### Done
@@ -102,6 +102,17 @@ are wrapped, and those that aren't.
     lilv_nodes_is_end
     lilv_nodes_contains
     lilv_nodes_merge
+    lilv_port_get_node
+    lilv_port_get_value
+    lilv_port_get
+    lilv_port_get_properties
+    lilv_port_has_property
+    lilv_port_supports_event
+    lilv_port_get_index
+    lilv_port_get_symbol
+    lilv_port_get_name
+    lilv_port_get_classes
+    lilv_port_get_range
 
 ### Missing
 
@@ -148,17 +159,6 @@ are wrapped, and those that aren't.
     lilv_plugin_get_num_ports_of_class
     lilv_plugin_write_description
     lilv_plugin_write_manifest_entry
-    lilv_port_get_node
-    lilv_port_get_value
-    lilv_port_get
-    lilv_port_get_properties
-    lilv_port_has_property
-    lilv_port_supports_event
-    lilv_port_get_index
-    lilv_port_get_symbol
-    lilv_port_get_name
-    lilv_port_get_classes
-    lilv_port_get_range
     lilv_port_get_scale_points
     lilv_state_new_from_world
     lilv_state_new_from_file
