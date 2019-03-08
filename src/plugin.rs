@@ -9,8 +9,8 @@ use crate::world::new_node;
 use crate::world::ref_node;
 use crate::world::World;
 use crate::Void;
-use std::ptr;
 use std::marker::PhantomData;
+use std::ptr;
 use std::rc::Rc;
 
 #[link(name = "lilv-0")]
@@ -142,7 +142,7 @@ impl Plugin {
 
     pub fn get_extension_data(&self) -> Nodes<Uri> {
         Nodes {
-            nodes: unsafe {lilv_plugin_get_extension_data(self.plugin)},
+            nodes: unsafe { lilv_plugin_get_extension_data(self.plugin) },
             world: self.world.clone(),
             owned: true,
             _phantom: PhantomData,
@@ -154,11 +154,11 @@ impl Plugin {
     }
 
     pub fn has_latency(&self) -> bool {
-        unsafe { lilv_plugin_has_latency(self.plugin) != 0}
+        unsafe { lilv_plugin_has_latency(self.plugin) != 0 }
     }
 
     pub fn get_latency_port_index(&self) -> u32 {
-        unsafe { lilv_plugin_get_latency_port_index(self.plugin)}
+        unsafe { lilv_plugin_get_latency_port_index(self.plugin) }
     }
 
     pub fn get_port_by_index<'a>(&'a self, index: u32) -> Option<Port<'a>> {
@@ -173,7 +173,10 @@ impl Plugin {
         }
     }
 
-    pub fn get_port_by_symbol<'a>(&'a self, symbol: &Node<crate::node::String>) -> Option<Port<'a>> {
+    pub fn get_port_by_symbol<'a>(
+        &'a self,
+        symbol: &Node<crate::node::String>,
+    ) -> Option<Port<'a>> {
         let ptr = unsafe { lilv_plugin_get_port_by_symbol(self.plugin, symbol.node) };
         if ptr.is_null() {
             None
@@ -185,12 +188,18 @@ impl Plugin {
         }
     }
 
-    pub fn get_port_by_designation<'a, 'b, C>(&'a self, port_class: C, designation: &'b Node<Uri>) -> Option<Port<'a>>
+    pub fn get_port_by_designation<'a, 'b, C>(
+        &'a self,
+        port_class: C,
+        designation: &'b Node<Uri>,
+    ) -> Option<Port<'a>>
     where
         C: Into<Option<&'b Node<Uri>>>,
     {
         let port_class = port_class.into().map_or(ptr::null(), |x| x.node);
-        let ptr = unsafe { lilv_plugin_get_port_by_designation(self.plugin, port_class, designation.node) };
+        let ptr = unsafe {
+            lilv_plugin_get_port_by_designation(self.plugin, port_class, designation.node)
+        };
         if ptr.is_null() {
             None
         } else {
