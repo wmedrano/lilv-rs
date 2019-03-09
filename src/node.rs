@@ -241,7 +241,7 @@ impl Node<Uri> {
         } else {
             unsafe {
                 let ret_path = CString::from(CStr::from_ptr(path));
-                serd_free(path as *mut Void);
+                lilv_free(path as *mut Void);
 
                 let ret_hostname = if with_hostname & !hostname.is_null() {
                     let ret_hostname = CString::from(CStr::from_ptr(hostname));

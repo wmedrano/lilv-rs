@@ -16,12 +16,13 @@ are wrapped, and those that aren't.
 
 . | n | %
 --- | --- | ---
-**done** | 108 | ~64
-**not done** | 61 |
+**done** | 109 | ~64
+**not done** | 60 |
 **total** | 169 |
 
 ### Done
 
+    lilv_file_uri_parse
     lilv_world_free
     lilv_world_new
     lilv_world_set_option
@@ -134,7 +135,6 @@ are wrapped, and those that aren't.
 ### Missing
 
     lilv_uri_to_path
-    lilv_file_uri_parse
     lilv_plugin_classes_get_by_uri
     lilv_scale_points_free
     lilv_scale_points_size
