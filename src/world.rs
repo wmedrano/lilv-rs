@@ -4,6 +4,8 @@ use crate::node::Float;
 use crate::node::Int;
 use crate::node::Node;
 use crate::node::Uri;
+use crate::plugin_class::PluginClass;
+use crate::plugin_classes::PluginClasses;
 use crate::plugins::Plugins;
 use crate::Void;
 use std::ffi::CStr;
@@ -96,6 +98,8 @@ pub trait WorldImpl {
     fn unload_bundle(&self, bundle_uri: &Node<Uri>) -> Result<(), ()>;
     fn load_resource(&self, bundle_uri: &Node<Any>) -> Result<usize, ()>;
     fn unload_resource(&self, bundle_uri: &Node<Any>) -> Result<(), ()>;
+    fn get_plugin_class(&self) -> PluginClass;
+    fn get_plugin_classes(&self) -> PluginClasses;
     //fn get_plugin_class(&self) -> PluginClass;
     //fn get_plugin_classes(&self) -> PluginClasses;
     fn get_all_plugins(&self) -> Plugins;
@@ -116,6 +120,7 @@ pub trait WorldImpl {
         O: Into<Option<Node<Any>>>;
     fn get_symbol(&self, subject: &Node<Any>) -> Option<Node<crate::node::String>>;
     fn new_uri(&self, uri: &CStr) -> Node<Uri>;
+    fn new_file_uri(&self, host: Option<&CStr>, path: &CStr) -> Node<Uri>;
     fn new_string(&self, str: &CStr) -> Node<crate::node::String>;
     fn new_int(&self, value: i32) -> Node<Int>;
     fn new_float(&self, value: f32) -> Node<Float>;
@@ -182,6 +187,23 @@ impl WorldImpl for Rc<World> {
         }
     }
 
+    fn get_plugin_class(&self) -> PluginClass {
+        PluginClass {
+            plugin_class: unsafe {
+                lilv_world_get_plugin_class(*self.0.read().unwrap()) as *mut Void
+            },
+            world: self.clone(),
+        }
+    }
+
+    fn get_plugin_classes(&self) -> PluginClasses {
+        PluginClasses {
+            plugin_classes: unsafe { lilv_world_get_plugin_classes(*self.0.read().unwrap()) },
+            owned: false,
+            world: self.clone(),
+        }
+    }
+
     /// Return a list of all found plugins.
     /// The returned list contains just enough references to query
     /// or instantiate plugins.  The data for a particular plugin will not be
@@ -237,6 +259,16 @@ impl WorldImpl for Rc<World> {
     fn new_uri(&self, uri: &CStr) -> Node<Uri> {
         new_node(self, unsafe {
             lilv_new_uri(*self.0.write().unwrap(), uri.as_ptr())
+        })
+    }
+
+    fn new_file_uri(&self, host: Option<&CStr>, path: &CStr) -> Node<Uri> {
+        new_node(self, unsafe {
+            lilv_new_file_uri(
+                *self.0.write().unwrap(),
+                host.map_or(ptr::null(), |x| x.as_ptr()),
+                path.as_ptr(),
+            )
         })
     }
 

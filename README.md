@@ -16,13 +16,14 @@ are wrapped, and those that aren't.
 
 . | n | %
 --- | --- | ---
-**done** | 91 | ~54
-**not done** | 78 |
+**done** | 108 | ~64
+**not done** | 61 |
 **total** | 169 |
 
 ### Done
 
     lilv_world_free
+    lilv_world_new
     lilv_world_set_option
     lilv_world_load_all
     lilv_world_load_bundle
@@ -35,7 +36,10 @@ are wrapped, and those that aren't.
     lilv_world_get
     lilv_world_ask
     lilv_world_get_symbol
+    lilv_world_get_plugin_class
+    lilv_world_get_plugin_classes
     lilv_new_uri
+    lilv_new_file_uri
     lilv_new_string
     lilv_new_int
     lilv_new_float
@@ -88,6 +92,7 @@ are wrapped, and those that aren't.
     lilv_node_as_int
     lilv_node_is_bool
     lilv_node_as_bool
+    lilv_node_get_path
     lilv_node_free
     lilv_instance_connect_port
     lilv_instance_activate
@@ -113,21 +118,23 @@ are wrapped, and those that aren't.
     lilv_port_get_name
     lilv_port_get_classes
     lilv_port_get_range
-
-### Missing
-
     lilv_free
-    lilv_uri_to_path
-    lilv_file_uri_parse
-    lilv_new_file_uri
     lilv_node_get_turtle_token
-    lilv_node_get_path
+    lilv_plugin_class_get_parent_uri
+    lilv_plugin_class_get_uri
+    lilv_plugin_class_get_label
+    lilv_plugin_class_get_children
     lilv_plugin_classes_free
     lilv_plugin_classes_size
     lilv_plugin_classes_begin
     lilv_plugin_classes_get
     lilv_plugin_classes_next
     lilv_plugin_classes_is_end
+
+### Missing
+
+    lilv_uri_to_path
+    lilv_file_uri_parse
     lilv_plugin_classes_get_by_uri
     lilv_scale_points_free
     lilv_scale_points_size
@@ -150,9 +157,6 @@ are wrapped, and those that aren't.
     lilv_uis_next
     lilv_uis_is_end
     lilv_uis_get_by_uri
-    lilv_world_new
-    lilv_world_get_plugin_class
-    lilv_world_get_plugin_classes
     lilv_world_find_nodes
     lilv_plugin_verify
     lilv_plugin_get_class
@@ -179,10 +183,6 @@ are wrapped, and those that aren't.
     lilv_state_delete
     lilv_scale_point_get_label
     lilv_scale_point_get_value
-    lilv_plugin_class_get_parent_uri
-    lilv_plugin_class_get_uri
-    lilv_plugin_class_get_label
-    lilv_plugin_class_get_children
     lilv_instance_get_uri
     lilv_instance_get_extension_data
     lilv_instance_get_descriptor

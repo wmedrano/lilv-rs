@@ -2,13 +2,16 @@ use crate::world::new_node;
 use crate::world::World;
 use crate::Void;
 use std::ffi::CStr;
+use std::ffi::CString;
 use std::marker::PhantomData;
+use std::ptr;
 use std::rc::Rc;
 
 #[link(name = "lilv-0")]
 extern "C" {
     fn lilv_node_duplicate(value: *const Void) -> *mut Void;
     fn lilv_node_equals(value: *const Void, other: *const Void) -> u8;
+    fn lilv_node_get_turtle_token(value: *const Void) -> *mut i8;
     fn lilv_node_is_uri(value: *const Void) -> u8;
     fn lilv_node_as_uri(value: *const Void) -> *const i8;
     fn lilv_node_is_blank(value: *const Void) -> u8;
@@ -16,6 +19,7 @@ extern "C" {
     fn lilv_node_is_literal(value: *const Void) -> u8;
     fn lilv_node_is_string(value: *const Void) -> u8;
     fn lilv_node_as_string(value: *const Void) -> *const i8;
+    fn lilv_node_get_path(value: *const Void, hostname: *mut *mut i8) -> *mut i8;
     fn lilv_node_is_float(value: *const Void) -> u8;
     fn lilv_node_as_float(value: *const Void) -> f32;
     fn lilv_node_is_int(value: *const Void) -> u8;
@@ -23,6 +27,12 @@ extern "C" {
     fn lilv_node_is_bool(value: *const Void) -> u8;
     fn lilv_node_as_bool(value: *const Void) -> u8;
     fn lilv_node_free(val: *mut Void);
+    fn lilv_free(val: *mut Void);
+}
+
+#[link(name = "serd-0")]
+extern "C" {
+    fn serd_free(val: *mut Void);
 }
 
 pub struct Node<T> {
@@ -85,6 +95,15 @@ impl<T> Node<T> {
 }
 
 impl Node<Any> {
+    pub fn get_turtle_token(&self) -> CString {
+        unsafe {
+            let token = lilv_node_get_turtle_token(self.node);
+            let ret = CString::from(CStr::from_ptr(token));
+            lilv_free(token as *mut Void);
+            ret
+        }
+    }
+
     pub fn as_uri(self) -> Result<Node<Uri>, Self> {
         unsafe {
             if lilv_node_is_uri(self.node) != 0 {
@@ -198,6 +217,42 @@ impl Node<Literal> {
         match self.as_any().as_bool() {
             Ok(node) => Ok(node),
             Err(node) => Err(node.convert()),
+        }
+    }
+}
+
+impl Node<Uri> {
+    pub fn get_path(&self, with_hostname: bool) -> Option<(CString, Option<CString>)> {
+        let mut hostname = ptr::null_mut();
+
+        let path = unsafe {
+            lilv_node_get_path(
+                self.node,
+                if with_hostname {
+                    &mut hostname
+                } else {
+                    ptr::null_mut()
+                },
+            )
+        };
+
+        if path.is_null() {
+            None
+        } else {
+            unsafe {
+                let ret_path = CString::from(CStr::from_ptr(path));
+                serd_free(path as *mut Void);
+
+                let ret_hostname = if with_hostname & !hostname.is_null() {
+                    let ret_hostname = CString::from(CStr::from_ptr(hostname));
+                    serd_free(hostname as *mut Void);
+                    Some(ret_hostname)
+                } else {
+                    None
+                };
+
+                Some((ret_path, ret_hostname))
+            }
         }
     }
 }
