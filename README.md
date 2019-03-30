@@ -34,6 +34,7 @@ are wrapped, and those that aren't.
     lilv_world_load_resource
     lilv_world_unload_resource
     lilv_world_get_all_plugins
+    lilv_world_find_nodes
     lilv_world_get
     lilv_world_ask
     lilv_world_get_symbol
@@ -78,6 +79,10 @@ are wrapped, and those that aren't.
     lilv_plugin_get_author_homepage
     lilv_plugin_is_replaced
     lilv_plugin_get_related
+    lilv_plugin_verify
+    lilv_plugin_get_class
+    lilv_plugin_get_num_ports_of_class [reimplemented]
+    lilv_plugin_get_uis
     lilv_node_duplicate
     lilv_node_equals
     lilv_node_is_uri
@@ -100,6 +105,10 @@ are wrapped, and those that aren't.
     lilv_instance_run
     lilv_instance_deactivate
     lilv_instance_free
+    lilv_instance_get_uri
+    lilv_instance_get_extension_data
+    lilv_instance_get_descriptor
+    lilv_instance_get_handle
     lilv_nodes_free
     lilv_nodes_size
     lilv_nodes_begin
@@ -131,36 +140,33 @@ are wrapped, and those that aren't.
     lilv_plugin_classes_get
     lilv_plugin_classes_next
     lilv_plugin_classes_is_end
+    lilv_plugin_classes_get_by_uri
+    lilv_ui_get_uri
+    lilv_ui_get_classes
+    lilv_ui_is_a
+    lilv_ui_is_supported
+    lilv_ui_get_bundle_uri
+    lilv_ui_get_binary_uri
+    lilv_uis_free
+    lilv_uis_size
+    lilv_uis_begin
+    lilv_uis_get
+    lilv_uis_next
+    lilv_uis_is_end
+    lilv_uis_get_by_uri
+    lilv_scale_point_get_label
+    lilv_scale_point_get_value
 
 ### Missing
 
     lilv_uri_to_path
-    lilv_plugin_classes_get_by_uri
     lilv_scale_points_free
     lilv_scale_points_size
     lilv_scale_points_begin
     lilv_scale_points_get
     lilv_scale_points_next
     lilv_scale_points_is_end
-    lilv_uis_free
-    lilv_uis_size
-    lilv_uis_begin
-    lilv_uis_get
-    lilv_uis_next
-    lilv_uis_is_end
-    lilv_uis_get_by_uri
     lilv_nodes_get_first
-    lilv_uis_free
-    lilv_uis_size
-    lilv_uis_begin
-    lilv_uis_get
-    lilv_uis_next
-    lilv_uis_is_end
-    lilv_uis_get_by_uri
-    lilv_world_find_nodes
-    lilv_plugin_verify
-    lilv_plugin_get_class
-    lilv_plugin_get_num_ports_of_class
     lilv_plugin_write_description
     lilv_plugin_write_manifest_entry
     lilv_port_get_scale_points
@@ -181,16 +187,3 @@ are wrapped, and those that aren't.
     lilv_state_save
     lilv_state_to_string
     lilv_state_delete
-    lilv_scale_point_get_label
-    lilv_scale_point_get_value
-    lilv_instance_get_uri
-    lilv_instance_get_extension_data
-    lilv_instance_get_descriptor
-    lilv_instance_get_handle
-    lilv_plugin_get_uis
-    lilv_ui_get_uri
-    lilv_ui_get_classes
-    lilv_ui_is_a
-    lilv_ui_is_supported
-    lilv_ui_get_bundle_uri
-    lilv_ui_get_binary_uri

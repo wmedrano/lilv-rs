@@ -47,7 +47,7 @@ impl<'a, T> Collection<'a> for Nodes<T>
 where
     Self: 'a,
 {
-    type Target = Node<T>;
+    type Target = Node<'a, T>;
 
     fn get(&self, i: *mut Void) -> Self::Target {
         Node {

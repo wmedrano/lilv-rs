@@ -16,6 +16,9 @@ mod plugin_class;
 mod plugin_classes;
 mod plugins;
 mod port;
+mod scale_point;
+mod ui;
+mod uis;
 mod world;
 
 pub use crate::collection::*;
@@ -27,13 +30,16 @@ pub use crate::plugin_class::*;
 pub use crate::plugin_classes::*;
 pub use crate::plugins::*;
 pub use crate::port::*;
+pub use crate::scale_point::*;
+pub use crate::ui::*;
+pub use crate::uis::*;
 pub use crate::world::*;
 
 pub use lv2_raw::LV2Descriptor;
 pub use lv2_raw::LV2Feature;
 
-use std::ffi::CString;
 use std::ffi::CStr;
+use std::ffi::CString;
 use std::ptr;
 
 type Void = libc::c_void;

@@ -4,7 +4,9 @@ use crate::node::Any;
 use crate::node::Node;
 use crate::node::Uri;
 use crate::nodes::Nodes;
+use crate::plugin_class::PluginClass;
 use crate::port::Port;
+use crate::uis::UIs;
 use crate::world::new_node;
 use crate::world::ref_node;
 use crate::world::World;
@@ -15,11 +17,13 @@ use std::rc::Rc;
 
 #[link(name = "lilv-0")]
 extern "C" {
+    fn lilv_plugin_verify(plugin: *const Void) -> u8;
     fn lilv_plugin_get_uri(plugin: *const Void) -> *const Void;
     fn lilv_plugin_get_bundle_uri(plugin: *const Void) -> *const Void;
     fn lilv_plugin_get_data_uris(plugin: *const Void) -> *const Void;
     fn lilv_plugin_get_library_uri(plugin: *const Void) -> *const Void;
     fn lilv_plugin_get_name(plugin: *const Void) -> *mut Void;
+    fn lilv_plugin_get_class(plugin: *const Void) -> *const Void;
     fn lilv_plugin_get_value(plugin: *const Void, predicate: *const Void) -> *mut Void;
     fn lilv_plugin_has_feature(plugin: *const Void, feature: *const Void) -> u8;
     fn lilv_plugin_get_supported_features(plugin: *const Void) -> *mut Void;
@@ -28,8 +32,15 @@ extern "C" {
     fn lilv_plugin_has_extension_data(plugin: *const Void, uri: *const Void) -> u8;
     fn lilv_plugin_get_extension_data(plugin: *const Void) -> *mut Void;
     fn lilv_plugin_get_num_ports(plugin: *const Void) -> u32;
+    fn lilv_plugin_get_port_ranges_float(
+        plugin: *const Void,
+        min_values: *mut f32,
+        max_values: *mut f32,
+        def_values: *mut f32,
+    );
     fn lilv_plugin_has_latency(plugin: *const Void) -> u8;
     fn lilv_plugin_get_latency_port_index(plugin: *const Void) -> u32;
+    fn lilv_plugin_get_port_by_index(plugin: *const Void, index: u32) -> *const Void;
     fn lilv_plugin_get_port_by_symbol(plugin: *const Void, symbol: *const Void) -> *const Void;
     fn lilv_plugin_get_port_by_designation(
         plugin: *const Void,
@@ -42,18 +53,12 @@ extern "C" {
     fn lilv_plugin_get_author_homepage(plugin: *const Void) -> *mut Void;
     fn lilv_plugin_is_replaced(plugin: *const Void) -> u8;
     fn lilv_plugin_get_related(plugin: *const Void, tyep: *const Void) -> *mut Void;
-    fn lilv_plugin_get_port_ranges_float(
-        plugin: *const Void,
-        min_values: *mut f32,
-        max_values: *mut f32,
-        def_values: *mut f32,
-    );
-    fn lilv_plugin_get_port_by_index(plugin: *const Void, index: u32) -> *const Void;
     fn lilv_plugin_instantiate(
         plugin: *const Void,
         sample_rate: f64,
         features: *const *const lv2_raw::LV2Feature,
     ) -> *mut InstanceImpl;
+    fn lilv_plugin_get_uis(plugin: *const Void) -> *mut Void;
 }
 
 pub struct Plugin {
@@ -62,6 +67,10 @@ pub struct Plugin {
 }
 
 impl Plugin {
+    pub fn verify(&self) -> bool {
+        unsafe { lilv_plugin_verify(self.plugin) != 0 }
+    }
+
     pub fn get_uri(&self) -> Node<Uri> {
         ref_node(&self.world, unsafe { lilv_plugin_get_uri(self.plugin) })
     }
@@ -89,6 +98,13 @@ impl Plugin {
 
     pub fn get_name(&self) -> Node<crate::node::String> {
         new_node(&self.world, unsafe { lilv_plugin_get_name(self.plugin) })
+    }
+
+    pub fn get_class(&self) -> PluginClass {
+        PluginClass {
+            plugin_class: unsafe { lilv_plugin_get_class(self.plugin) as *mut Void },
+            world: self.world.clone(),
+        }
     }
 
     pub fn get_value(&self, predicate: &Node<Any>) -> Option<Nodes<Any>> {
@@ -153,6 +169,18 @@ impl Plugin {
         unsafe { lilv_plugin_get_num_ports(self.plugin) }
     }
 
+    pub fn get_num_ports_of_class<'a, T>(&self, classes: &[T]) -> u32
+    where
+        T: AsRef<Node<'a, Uri>>,
+    {
+        (0..self.get_num_ports())
+            .filter(|p| {
+                let port = self.get_port_by_index(*p).unwrap();
+                classes.iter().all(|cls| port.is_a(cls.as_ref()))
+            })
+            .count() as u32
+    }
+
     pub fn has_latency(&self) -> bool {
         unsafe { lilv_plugin_has_latency(self.plugin) != 0 }
     }
@@ -194,7 +222,7 @@ impl Plugin {
         designation: &'b Node<Uri>,
     ) -> Option<Port<'a>>
     where
-        C: Into<Option<&'b Node<Uri>>>,
+        C: Into<Option<&'b Node<'b, Uri>>>,
     {
         let port_class = port_class.into().map_or(ptr::null(), |x| x.node);
         let ptr = unsafe {
@@ -252,7 +280,7 @@ impl Plugin {
 
     pub fn get_related<'a, T>(&self, tyep: T) -> Nodes<Any>
     where
-        T: Into<Option<&'a Node<Any>>>,
+        T: Into<Option<&'a Node<'a, Any>>>,
     {
         let tyep = tyep.into().map_or(ptr::null(), |x| x.node);
         Nodes {
@@ -309,6 +337,14 @@ impl Plugin {
             None
         } else {
             Some(Instance(ptr))
+        }
+    }
+
+    pub fn get_uis(&self) -> UIs {
+        UIs {
+            uis: unsafe { lilv_plugin_get_uis(self.plugin) },
+            owned: true,
+            world: self.world.clone(),
         }
     }
 }

@@ -35,26 +35,26 @@ extern "C" {
     fn serd_free(val: *mut Void);
 }
 
-pub struct Node<T> {
+pub struct Node<'a, T> {
     pub(crate) node: *mut Void,
     pub(crate) world: Rc<World>,
     pub(crate) owned: bool,
-    pub(crate) _phantom: PhantomData<T>,
+    pub(crate) _phantom: PhantomData<(T, fn() -> &'a ())>,
 }
 
-impl<T> Clone for Node<T> {
+impl<'a, T> Clone for Node<'a, T> {
     fn clone(&self) -> Self {
         new_node(&self.world, unsafe { lilv_node_duplicate(self.node) })
     }
 }
 
-impl<T> PartialEq for Node<T> {
+impl<'a, T> PartialEq for Node<'a, T> {
     fn eq(&self, other: &Self) -> bool {
         unsafe { lilv_node_equals(self.node, other.node) != 0 }
     }
 }
 
-impl<T> Drop for Node<T> {
+impl<'a, T> Drop for Node<'a, T> {
     fn drop(&mut self) {
         if self.owned {
             let _lock = (*self.world).0.write().unwrap();
@@ -77,12 +77,12 @@ pub trait NodeImpl<'a>: 'a {
     fn value(&'a self) -> Self::Target;
 }
 
-impl<T> Node<T> {
-    pub fn as_any(self) -> Node<Any> {
+impl<'a, T> Node<'a, T> {
+    pub fn as_any(self) -> Node<'a, Any> {
         self.convert::<Any>()
     }
 
-    pub(crate) fn convert<U>(mut self) -> Node<U> {
+    pub(crate) fn convert<U>(mut self) -> Node<'a, U> {
         let new_node = Node {
             node: self.node,
             world: self.world.clone(),
@@ -94,7 +94,7 @@ impl<T> Node<T> {
     }
 }
 
-impl Node<Any> {
+impl<'a> Node<'a, Any> {
     pub fn get_turtle_token(&self) -> CString {
         unsafe {
             let token = lilv_node_get_turtle_token(self.node);
@@ -104,7 +104,7 @@ impl Node<Any> {
         }
     }
 
-    pub fn as_uri(self) -> Result<Node<Uri>, Self> {
+    pub fn as_uri(self) -> Result<Node<'a, Uri>, Self> {
         unsafe {
             if lilv_node_is_uri(self.node) != 0 {
                 Ok(self.convert())
@@ -114,7 +114,7 @@ impl Node<Any> {
         }
     }
 
-    pub fn as_blank(self) -> Result<Node<Blank>, Self> {
+    pub fn as_blank(self) -> Result<Node<'a, Blank>, Self> {
         unsafe {
             if lilv_node_is_blank(self.node) != 0 {
                 Ok(self.convert())
@@ -124,7 +124,7 @@ impl Node<Any> {
         }
     }
 
-    pub fn as_literal(self) -> Result<Node<Literal>, Self> {
+    pub fn as_literal(self) -> Result<Node<'a, Literal>, Self> {
         unsafe {
             if lilv_node_is_literal(self.node) != 0 {
                 Ok(self.convert())
@@ -134,7 +134,7 @@ impl Node<Any> {
         }
     }
 
-    pub fn as_string(self) -> Result<Node<String>, Self> {
+    pub fn as_string(self) -> Result<Node<'a, crate::node::String>, Self> {
         unsafe {
             if lilv_node_is_string(self.node) != 0 {
                 Ok(self.convert())
@@ -144,7 +144,7 @@ impl Node<Any> {
         }
     }
 
-    pub fn as_float(self) -> Result<Node<Float>, Self> {
+    pub fn as_float(self) -> Result<Node<'a, Float>, Self> {
         unsafe {
             if lilv_node_is_float(self.node) != 0 {
                 Ok(self.convert())
@@ -154,7 +154,7 @@ impl Node<Any> {
         }
     }
 
-    pub fn as_int(self) -> Result<Node<Int>, Self> {
+    pub fn as_int(self) -> Result<Node<'a, Int>, Self> {
         unsafe {
             if lilv_node_is_int(self.node) != 0 {
                 Ok(self.convert())
@@ -164,7 +164,7 @@ impl Node<Any> {
         }
     }
 
-    pub fn as_bool(self) -> Result<Node<Bool>, Self> {
+    pub fn as_bool(self) -> Result<Node<'a, Bool>, Self> {
         unsafe {
             if lilv_node_is_bool(self.node) != 0 {
                 Ok(self.convert())
@@ -175,7 +175,7 @@ impl Node<Any> {
     }
 }
 
-impl<'a> NodeImpl<'a> for Node<Uri> {
+impl<'a> NodeImpl<'a> for Node<'a, Uri> {
     type Target = &'a CStr;
 
     fn value(&self) -> Self::Target {
@@ -183,7 +183,7 @@ impl<'a> NodeImpl<'a> for Node<Uri> {
     }
 }
 
-impl<'a> NodeImpl<'a> for Node<Blank> {
+impl<'a> NodeImpl<'a> for Node<'a, Blank> {
     type Target = &'a CStr;
 
     fn value(&self) -> Self::Target {
@@ -191,29 +191,29 @@ impl<'a> NodeImpl<'a> for Node<Blank> {
     }
 }
 
-impl Node<Literal> {
-    pub fn as_string(self) -> Result<Node<String>, Self> {
+impl<'a> Node<'a, Literal> {
+    pub fn as_string(self) -> Result<Node<'a, crate::node::String>, Self> {
         match self.as_any().as_string() {
             Ok(node) => Ok(node),
             Err(node) => Err(node.convert()),
         }
     }
 
-    pub fn as_float(self) -> Result<Node<Float>, Self> {
+    pub fn as_float(self) -> Result<Node<'a, Float>, Self> {
         match self.as_any().as_float() {
             Ok(node) => Ok(node),
             Err(node) => Err(node.convert()),
         }
     }
 
-    pub fn as_int(self) -> Result<Node<Int>, Self> {
+    pub fn as_int(self) -> Result<Node<'a, Int>, Self> {
         match self.as_any().as_int() {
             Ok(node) => Ok(node),
             Err(node) => Err(node.convert()),
         }
     }
 
-    pub fn as_bool(self) -> Result<Node<Bool>, Self> {
+    pub fn as_bool(self) -> Result<Node<'a, Bool>, Self> {
         match self.as_any().as_bool() {
             Ok(node) => Ok(node),
             Err(node) => Err(node.convert()),
@@ -221,7 +221,7 @@ impl Node<Literal> {
     }
 }
 
-impl Node<Uri> {
+impl<'a> Node<'a, Uri> {
     pub fn get_path(&self, with_hostname: bool) -> Option<(CString, Option<CString>)> {
         let mut hostname = ptr::null_mut();
 
@@ -257,7 +257,7 @@ impl Node<Uri> {
     }
 }
 
-impl<'a> NodeImpl<'a> for Node<String> {
+impl<'a> NodeImpl<'a> for Node<'a, crate::node::String> {
     type Target = &'a CStr;
 
     fn value(&self) -> Self::Target {
@@ -265,7 +265,7 @@ impl<'a> NodeImpl<'a> for Node<String> {
     }
 }
 
-impl<'a> NodeImpl<'a> for Node<Float> {
+impl<'a> NodeImpl<'a> for Node<'a, Float> {
     type Target = f32;
 
     fn value(&self) -> Self::Target {
@@ -273,7 +273,7 @@ impl<'a> NodeImpl<'a> for Node<Float> {
     }
 }
 
-impl<'a> NodeImpl<'a> for Node<Int> {
+impl<'a> NodeImpl<'a> for Node<'a, Int> {
     type Target = i32;
 
     fn value(&self) -> Self::Target {
@@ -281,7 +281,7 @@ impl<'a> NodeImpl<'a> for Node<Int> {
     }
 }
 
-impl<'a> NodeImpl<'a> for Node<Bool> {
+impl<'a> NodeImpl<'a> for Node<'a, Bool> {
     type Target = bool;
 
     fn value(&self) -> Self::Target {
