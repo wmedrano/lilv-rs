@@ -1,7 +1,6 @@
 use crate::collection::Collection;
 use crate::collection::Iter;
 use crate::node::Node;
-use crate::node::Uri;
 use crate::plugin_class::PluginClass;
 use crate::world::World;
 use crate::Void;
@@ -46,7 +45,7 @@ where
 }
 
 impl PluginClasses {
-    pub fn get_by_uri<'a>(&'a self, uri: &Node<Uri>) -> Option<PluginClass> {
+    pub fn get_by_uri<'a>(&'a self, uri: &Node) -> Option<PluginClass> {
         let ptr = unsafe { lilv_plugin_classes_get_by_uri(self.plugin_classes, uri.node) };
 
         if ptr.is_null() {

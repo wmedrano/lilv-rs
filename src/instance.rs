@@ -97,7 +97,9 @@ impl Instance {
 
     #[inline(always)]
     pub unsafe fn get_extension_data(&self, uri: &CStr) -> *const libc::c_void {
-        self.get_descriptor().extension_data.map_or(ptr::null_mut(), |f| f(uri.as_ptr()))
+        self.get_descriptor()
+            .extension_data
+            .map_or(ptr::null_mut(), |f| f(uri.as_ptr()))
     }
 
     #[inline(always)]

@@ -1,13 +1,10 @@
-use crate::node::Any;
-use crate::node::Float;
 use crate::node::Node;
-use crate::node::Uri;
 use crate::nodes::Nodes;
 use crate::plugin::Plugin;
+use crate::scale_points::ScalePoints;
 use crate::world::new_node;
 use crate::world::ref_node;
 use crate::Void;
-use std::marker::PhantomData;
 use std::ptr;
 
 #[link(name = "lilv-0")]
@@ -38,6 +35,7 @@ extern "C" {
         min: *mut *mut Void,
         max: *mut *mut Void,
     );
+    fn lilv_port_get_scale_points(plugin: *const Void, port: *const Void) -> *mut Void;
 }
 
 pub struct Port<'a> {
@@ -46,13 +44,13 @@ pub struct Port<'a> {
 }
 
 impl<'a> Port<'a> {
-    pub fn get_node(&self) -> Node<Any> {
+    pub fn get_node(&self) -> Node {
         ref_node(&self.plugin.world.clone(), unsafe {
             lilv_port_get_node(self.plugin.plugin, self.port)
         })
     }
 
-    pub fn get_value(&self, predicate: &Node<Any>) -> Option<Nodes<Any>> {
+    pub fn get_value(&self, predicate: &Node) -> Option<Nodes> {
         let nodes = unsafe { lilv_port_get_value(self.plugin.plugin, self.port, predicate.node) };
         if nodes.is_null() {
             None
@@ -61,12 +59,11 @@ impl<'a> Port<'a> {
                 nodes,
                 world: self.plugin.world.clone(),
                 owned: true,
-                _phantom: PhantomData,
             })
         }
     }
 
-    pub fn get(&self, predicate: &Node<Any>) -> Option<Node<Any>> {
+    pub fn get(&self, predicate: &Node) -> Option<Node> {
         let node = unsafe { lilv_port_get(self.plugin.plugin, self.port, predicate.node) };
         if node.is_null() {
             None
@@ -75,20 +72,19 @@ impl<'a> Port<'a> {
         }
     }
 
-    pub fn get_properties(&self) -> Nodes<Any> {
+    pub fn get_properties(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_port_get_properties(self.plugin.plugin, self.port) },
             world: self.plugin.world.clone(),
             owned: true,
-            _phantom: PhantomData,
         }
     }
 
-    pub fn has_property(&self, property: &Node<Any>) -> bool {
+    pub fn has_property(&self, property: &Node) -> bool {
         unsafe { lilv_port_has_property(self.plugin.plugin, self.port, property.node) != 0 }
     }
 
-    pub fn supports_event(&self, event_type: &Node<Any>) -> bool {
+    pub fn supports_event(&self, event_type: &Node) -> bool {
         unsafe { lilv_port_supports_event(self.plugin.plugin, self.port, event_type.node) != 0 }
     }
 
@@ -96,34 +92,27 @@ impl<'a> Port<'a> {
         unsafe { lilv_port_get_index(self.plugin.plugin, self.port) }
     }
 
-    pub fn get_symbol(&self) -> Node<crate::node::String> {
+    pub fn get_symbol(&self) -> Node {
         ref_node(&self.plugin.world, unsafe {
             lilv_port_get_symbol(self.plugin.plugin, self.port)
         })
     }
 
-    pub fn get_name(&self) -> Node<crate::node::String> {
+    pub fn get_name(&self) -> Node {
         new_node(&self.plugin.world, unsafe {
             lilv_port_get_name(self.plugin.plugin, self.port)
         })
     }
 
-    pub fn get_classes(&self) -> Nodes<Uri> {
+    pub fn get_classes(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_port_get_classes(self.plugin.plugin, self.port) as *mut Void },
             world: self.plugin.world.clone(),
             owned: false,
-            _phantom: PhantomData,
         }
     }
 
-    pub fn get_range(
-        &self,
-    ) -> (
-        Option<Node<Float>>,
-        Option<Node<Float>>,
-        Option<Node<Float>>,
-    ) {
+    pub fn get_range(&self) -> (Option<Node>, Option<Node>, Option<Node>) {
         let mut def = ptr::null_mut();
         let mut min = ptr::null_mut();
         let mut max = ptr::null_mut();
@@ -147,7 +136,15 @@ impl<'a> Port<'a> {
         )
     }
 
-    pub fn is_a(&'a self, port_class: &'a Node<Uri>) -> bool {
+    pub fn get_scale_points(&self) -> ScalePoints {
+        ScalePoints {
+            scale_points: unsafe { lilv_port_get_scale_points(self.plugin.plugin, self.port) },
+            owned: true,
+            world: self.plugin.world.clone(),
+        }
+    }
+
+    pub fn is_a(&'a self, port_class: &'a Node) -> bool {
         unsafe { lilv_port_is_a((self.plugin).plugin, self.port, port_class.node) != 0 }
     }
 }

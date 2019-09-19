@@ -1,9 +1,4 @@
-use crate::node::Any;
-use crate::node::Bool;
-use crate::node::Float;
-use crate::node::Int;
 use crate::node::Node;
-use crate::node::Uri;
 use crate::nodes::Nodes;
 use crate::plugin_class::PluginClass;
 use crate::plugin_classes::PluginClasses;
@@ -59,7 +54,7 @@ extern "C" {
 
 pub struct World(pub(crate) RwLock<*mut Void>);
 
-pub(crate) fn new_node<'a, T>(world: &Rc<World>, node: *mut Void) -> Node<'a, T> {
+pub(crate) fn new_node<'a>(world: &Rc<World>, node: *mut Void) -> Node<'a> {
     Node {
         node,
         world: world.clone(),
@@ -68,7 +63,7 @@ pub(crate) fn new_node<'a, T>(world: &Rc<World>, node: *mut Void) -> Node<'a, T>
     }
 }
 
-pub(crate) fn ref_node<'a, T>(world: &Rc<World>, node: *const Void) -> Node<'a, T> {
+pub(crate) fn ref_node<'a>(world: &Rc<World>, node: *const Void) -> Node<'a> {
     Node {
         node: node as *mut Void,
         world: world.clone(),
@@ -91,39 +86,39 @@ impl World {
 }
 
 pub trait WorldImpl {
-    fn set_option<'a>(&self, uri: &CStr, value: &Node<'a, Any>);
+    fn set_option<'a>(&self, uri: &CStr, value: &Node<'a>);
     fn load_all(&self);
-    fn load_bundle<'a>(&self, bundle_uri: &Node<'a, Uri>);
+    fn load_bundle<'a>(&self, bundle_uri: &Node<'a>);
     fn load_specifications(&self);
     fn load_plugin_classes(&self);
-    fn unload_bundle<'a>(&self, bundle_uri: &Node<'a, Uri>) -> Result<(), ()>;
-    fn load_resource<'a>(&self, bundle_uri: &Node<'a, Any>) -> Result<usize, ()>;
-    fn unload_resource<'a>(&self, bundle_uri: &Node<'a, Any>) -> Result<(), ()>;
+    fn unload_bundle<'a>(&self, bundle_uri: &Node<'a>) -> Result<(), ()>;
+    fn load_resource<'a>(&self, bundle_uri: &Node<'a>) -> Result<usize, ()>;
+    fn unload_resource<'a>(&self, bundle_uri: &Node<'a>) -> Result<(), ()>;
     fn get_plugin_class(&self) -> PluginClass;
     fn get_plugin_classes(&self) -> PluginClasses;
     fn get_all_plugins(&self) -> Plugins;
-    fn find_nodes<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> Option<Nodes<Any>>
+    fn find_nodes<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> Option<Nodes>
     where
-        S: Into<Option<Node<'a, Any>>>,
-        P: Into<Option<Node<'a, Any>>>,
-        O: Into<Option<Node<'a, Any>>>;
-    fn get<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> Option<Node<'a, Any>>
+        S: Into<Option<Node<'a>>>,
+        P: Into<Option<Node<'a>>>,
+        O: Into<Option<Node<'a>>>;
+    fn get<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> Option<Node<'a>>
     where
-        S: Into<Option<Node<'a, Any>>>,
-        P: Into<Option<Node<'a, Any>>>,
-        O: Into<Option<Node<'a, Any>>>;
+        S: Into<Option<Node<'a>>>,
+        P: Into<Option<Node<'a>>>,
+        O: Into<Option<Node<'a>>>;
     fn ask<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> bool
     where
-        S: Into<Option<Node<'a, Any>>>,
-        P: Into<Option<Node<'a, Any>>>,
-        O: Into<Option<Node<'a, Any>>>;
-    fn get_symbol<'a>(&self, subject: &Node<'a, Any>) -> Option<Node<crate::node::String>>;
-    fn new_uri<'a>(&self, uri: &CStr) -> Node<'a, Uri>;
-    fn new_file_uri<'a>(&self, host: Option<&CStr>, path: &CStr) -> Node<'a, Uri>;
-    fn new_string(&self, str: &CStr) -> Node<crate::node::String>;
-    fn new_int(&self, value: i32) -> Node<Int>;
-    fn new_float(&self, value: f32) -> Node<Float>;
-    fn new_bool(&self, value: bool) -> Node<Bool>;
+        S: Into<Option<Node<'a>>>,
+        P: Into<Option<Node<'a>>>,
+        O: Into<Option<Node<'a>>>;
+    fn get_symbol<'a>(&self, subject: &Node<'a>) -> Option<Node>;
+    fn new_uri<'a>(&self, uri: &CStr) -> Node<'a>;
+    fn new_file_uri<'a>(&self, host: Option<&CStr>, path: &CStr) -> Node<'a>;
+    fn new_string(&self, str: &CStr) -> Node;
+    fn new_int(&self, value: i32) -> Node;
+    fn new_float(&self, value: f32) -> Node;
+    fn new_bool(&self, value: bool) -> Node;
 }
 
 impl WorldImpl for Rc<World> {
@@ -132,7 +127,7 @@ impl WorldImpl for Rc<World> {
     /// Currently recognized options:
     /// * LILV_OPTION_FILTER_LANG
     /// * LILV_OPTION_DYN_MANIFEST
-    fn set_option<'a>(&self, uri: &CStr, value: &Node<'a, Any>) {
+    fn set_option<'a>(&self, uri: &CStr, value: &Node<'a>) {
         unsafe { lilv_world_set_option(*self.0.write().unwrap(), uri.as_ptr(), value.node) }
     }
 
@@ -149,7 +144,7 @@ impl WorldImpl for Rc<World> {
         unsafe { lilv_world_load_all(*self.0.write().unwrap()) }
     }
 
-    fn load_bundle<'a>(&self, bundle_uri: &Node<'a, Uri>) {
+    fn load_bundle<'a>(&self, bundle_uri: &Node<'a>) {
         unsafe { lilv_world_load_bundle(*self.0.write().unwrap(), bundle_uri.node) }
     }
 
@@ -161,7 +156,7 @@ impl WorldImpl for Rc<World> {
         unsafe { lilv_world_load_plugin_classes(*self.0.write().unwrap()) }
     }
 
-    fn unload_bundle<'a>(&self, bundle_uri: &Node<'a, Uri>) -> Result<(), ()> {
+    fn unload_bundle<'a>(&self, bundle_uri: &Node<'a>) -> Result<(), ()> {
         if unsafe { lilv_world_unload_bundle(*self.0.write().unwrap(), bundle_uri.node) == 0 } {
             Ok(())
         } else {
@@ -169,7 +164,7 @@ impl WorldImpl for Rc<World> {
         }
     }
 
-    fn load_resource<'a>(&self, resource: &Node<'a, Any>) -> Result<usize, ()> {
+    fn load_resource<'a>(&self, resource: &Node<'a>) -> Result<usize, ()> {
         unsafe {
             match lilv_world_load_resource(*self.0.write().unwrap(), resource.node) {
                 -1 => Err(()),
@@ -178,7 +173,7 @@ impl WorldImpl for Rc<World> {
         }
     }
 
-    fn unload_resource<'a>(&self, resource: &Node<'a, Any>) -> Result<(), ()> {
+    fn unload_resource<'a>(&self, resource: &Node<'a>) -> Result<(), ()> {
         if unsafe { lilv_world_unload_resource(*self.0.write().unwrap(), resource.node) == 0 } {
             Ok(())
         } else {
@@ -216,11 +211,11 @@ impl WorldImpl for Rc<World> {
         }
     }
 
-    fn find_nodes<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> Option<Nodes<Any>>
+    fn find_nodes<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> Option<Nodes>
     where
-        S: Into<Option<Node<'a, Any>>>,
-        P: Into<Option<Node<'a, Any>>>,
-        O: Into<Option<Node<'a, Any>>>,
+        S: Into<Option<Node<'a>>>,
+        P: Into<Option<Node<'a>>>,
+        O: Into<Option<Node<'a>>>,
     {
         let subject = subject.into().map_or(ptr::null(), |x| x.node);
         let predicate = predicate.into().map_or(ptr::null(), |x| x.node);
@@ -234,16 +229,15 @@ impl WorldImpl for Rc<World> {
                 nodes,
                 world: self.clone(),
                 owned: true,
-                _phantom: PhantomData,
             })
         }
     }
 
-    fn get<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> Option<Node<'a, Any>>
+    fn get<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> Option<Node<'a>>
     where
-        S: Into<Option<Node<'a, Any>>>,
-        P: Into<Option<Node<'a, Any>>>,
-        O: Into<Option<Node<'a, Any>>>,
+        S: Into<Option<Node<'a>>>,
+        P: Into<Option<Node<'a>>>,
+        O: Into<Option<Node<'a>>>,
     {
         let subject = subject.into().map_or(ptr::null(), |x| x.node);
         let predicate = predicate.into().map_or(ptr::null(), |x| x.node);
@@ -258,9 +252,9 @@ impl WorldImpl for Rc<World> {
 
     fn ask<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> bool
     where
-        S: Into<Option<Node<'a, Any>>>,
-        P: Into<Option<Node<'a, Any>>>,
-        O: Into<Option<Node<'a, Any>>>,
+        S: Into<Option<Node<'a>>>,
+        P: Into<Option<Node<'a>>>,
+        O: Into<Option<Node<'a>>>,
     {
         let subject = subject.into().map_or(ptr::null(), |x| x.node);
         let predicate = predicate.into().map_or(ptr::null(), |x| x.node);
@@ -268,7 +262,7 @@ impl WorldImpl for Rc<World> {
         unsafe { lilv_world_ask(*self.0.write().unwrap(), subject, predicate, object) != 0 }
     }
 
-    fn get_symbol<'a>(&self, subject: &Node<'a, Any>) -> Option<Node<crate::node::String>> {
+    fn get_symbol<'a>(&self, subject: &Node<'a>) -> Option<Node> {
         let node = unsafe { lilv_world_get_symbol(*self.0.write().unwrap(), subject.node) };
         if node.is_null() {
             None
@@ -278,13 +272,13 @@ impl WorldImpl for Rc<World> {
     }
 
     /// Create a new URI value.
-    fn new_uri<'a>(&self, uri: &CStr) -> Node<'a, Uri> {
+    fn new_uri<'a>(&self, uri: &CStr) -> Node<'a> {
         new_node(self, unsafe {
             lilv_new_uri(*self.0.write().unwrap(), uri.as_ptr())
         })
     }
 
-    fn new_file_uri<'a>(&self, host: Option<&CStr>, path: &CStr) -> Node<'a, Uri> {
+    fn new_file_uri<'a>(&self, host: Option<&CStr>, path: &CStr) -> Node<'a> {
         new_node(self, unsafe {
             lilv_new_file_uri(
                 *self.0.write().unwrap(),
@@ -294,25 +288,25 @@ impl WorldImpl for Rc<World> {
         })
     }
 
-    fn new_string(&self, str: &CStr) -> Node<crate::node::String> {
+    fn new_string(&self, str: &CStr) -> Node {
         new_node(self, unsafe {
             lilv_new_string(*self.0.write().unwrap(), str.as_ptr())
         })
     }
 
-    fn new_int(&self, value: i32) -> Node<Int> {
+    fn new_int(&self, value: i32) -> Node {
         new_node(self, unsafe {
             lilv_new_int(*self.0.write().unwrap(), value)
         })
     }
 
-    fn new_float(&self, value: f32) -> Node<Float> {
+    fn new_float(&self, value: f32) -> Node {
         new_node(self, unsafe {
             lilv_new_float(*self.0.write().unwrap(), value)
         })
     }
 
-    fn new_bool(&self, value: bool) -> Node<Bool> {
+    fn new_bool(&self, value: bool) -> Node {
         new_node(self, unsafe {
             lilv_new_bool(*self.0.write().unwrap(), if value { 1 } else { 0 })
         })

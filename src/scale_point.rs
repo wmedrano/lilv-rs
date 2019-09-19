@@ -1,9 +1,8 @@
-use crate::node::Any;
-use crate::world::ref_node;
 use crate::node::Node;
+use crate::world::ref_node;
 use crate::world::World;
-use std::rc::Rc;
 use crate::Void;
+use std::rc::Rc;
 
 #[link(name = "lilv-0")]
 extern "C" {
@@ -17,11 +16,15 @@ pub struct ScalePoint {
 }
 
 impl ScalePoint {
-    pub fn get_label(&self) -> Node<Any> {
-        ref_node(&self.world, unsafe { lilv_scale_point_get_label(self.point) })
+    pub fn get_label(&self) -> Node {
+        ref_node(&self.world, unsafe {
+            lilv_scale_point_get_label(self.point)
+        })
     }
 
-    pub fn get_value(&self) -> Node<Any> {
-        ref_node(&self.world, unsafe { lilv_scale_point_get_value(self.point) })
+    pub fn get_value(&self) -> Node {
+        ref_node(&self.world, unsafe {
+            lilv_scale_point_get_value(self.point)
+        })
     }
 }

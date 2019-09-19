@@ -35,26 +35,26 @@ extern "C" {
     fn serd_free(val: *mut Void);
 }
 
-pub struct Node<'a, T> {
+pub struct Node<'a> {
     pub(crate) node: *mut Void,
     pub(crate) world: Rc<World>,
     pub(crate) owned: bool,
-    pub(crate) _phantom: PhantomData<(T, fn() -> &'a ())>,
+    pub(crate) _phantom: PhantomData<(Value<'a>, fn() -> &'a ())>,
 }
 
-impl<'a, T> Clone for Node<'a, T> {
+impl<'a> Clone for Node<'a> {
     fn clone(&self) -> Self {
         new_node(&self.world, unsafe { lilv_node_duplicate(self.node) })
     }
 }
 
-impl<'a, T> PartialEq for Node<'a, T> {
+impl<'a> PartialEq for Node<'a> {
     fn eq(&self, other: &Self) -> bool {
         unsafe { lilv_node_equals(self.node, other.node) != 0 }
     }
 }
 
-impl<'a, T> Drop for Node<'a, T> {
+impl<'a> Drop for Node<'a> {
     fn drop(&mut self) {
         if self.owned {
             let _lock = (*self.world).0.write().unwrap();
@@ -63,38 +63,91 @@ impl<'a, T> Drop for Node<'a, T> {
     }
 }
 
-pub enum Any {}
-pub enum Uri {}
-pub enum Blank {}
-pub enum Literal {}
-pub enum String {}
-pub enum Float {}
-pub enum Int {}
-pub enum Bool {}
-
-pub trait NodeImpl<'a>: 'a {
-    type Target: 'a;
-    fn value(&'a self) -> Self::Target;
+#[derive(Debug, PartialEq)]
+pub enum Value<'a> {
+    Uri(&'a CStr),
+    Blank(&'a CStr),
+    String(&'a CStr),
+    Float(f32),
+    Int(i32),
+    Bool(bool),
 }
 
-impl<'a, T> Node<'a, T> {
-    pub fn as_any(self) -> Node<'a, Any> {
-        self.convert::<Any>()
+impl<'a> Value<'a> {
+    pub fn try_into_uri(self) -> Result<&'a CStr, Self> {
+        if let Value::Uri(uri) = self {
+            Ok(uri)
+        } else {
+            Err(self)
+        }
     }
 
-    pub(crate) fn convert<U>(mut self) -> Node<'a, U> {
-        let new_node = Node {
-            node: self.node,
-            world: self.world.clone(),
-            owned: self.owned,
-            _phantom: PhantomData,
-        };
-        self.owned = false;
-        new_node
+    pub fn try_into_blank(self) -> Result<&'a CStr, Self> {
+        if let Value::Blank(blank) = self {
+            Ok(blank)
+        } else {
+            Err(self)
+        }
+    }
+
+    pub fn try_into_string(self) -> Result<&'a CStr, Self> {
+        if let Value::String(string) = self {
+            Ok(string)
+        } else {
+            Err(self)
+        }
+    }
+
+    pub fn try_into_float(self) -> Result<f32, Self> {
+        if let Value::Float(float) = self {
+            Ok(float)
+        } else {
+            Err(self)
+        }
+    }
+
+    pub fn try_into_int(self) -> Result<i32, Self> {
+        if let Value::Int(int) = self {
+            Ok(int)
+        } else {
+            Err(self)
+        }
+    }
+
+    pub fn try_into_bool(self) -> Result<bool, Self> {
+        if let Value::Bool(b) = self {
+            Ok(b)
+        } else {
+            Err(self)
+        }
+    }
+
+    pub fn into_uri(self) -> &'a CStr {
+        self.try_into_uri().unwrap()
+    }
+
+    pub fn into_blank(self) -> &'a CStr {
+        self.try_into_blank().unwrap()
+    }
+
+    pub fn into_string(self) -> &'a CStr {
+        self.try_into_string().unwrap()
+    }
+
+    pub fn into_float(self) -> f32 {
+        self.try_into_float().unwrap()
+    }
+
+    pub fn into_int(self) -> i32 {
+        self.try_into_int().unwrap()
+    }
+
+    pub fn into_bool(self) -> bool {
+        self.try_into_bool().unwrap()
     }
 }
 
-impl<'a> Node<'a, Any> {
+impl<'a> Node<'a> {
     pub fn get_turtle_token(&self) -> CString {
         unsafe {
             let token = lilv_node_get_turtle_token(self.node);
@@ -104,125 +157,59 @@ impl<'a> Node<'a, Any> {
         }
     }
 
-    pub fn as_uri(self) -> Result<Node<'a, Uri>, Self> {
+    pub fn value(&self) -> Value<'a> {
         unsafe {
             if lilv_node_is_uri(self.node) != 0 {
-                Ok(self.convert())
+                Value::Uri(CStr::from_ptr(lilv_node_as_uri(self.node)))
+            } else if lilv_node_is_blank(self.node) != 0 {
+                Value::Blank(CStr::from_ptr(lilv_node_as_blank(self.node)))
+            } else if lilv_node_is_string(self.node) != 0 {
+                Value::String(CStr::from_ptr(lilv_node_as_string(self.node)))
+            } else if lilv_node_is_float(self.node) != 0 {
+                Value::Float(lilv_node_as_float(self.node))
+            } else if lilv_node_is_int(self.node) != 0 {
+                Value::Int(lilv_node_as_int(self.node))
+            } else if lilv_node_is_bool(self.node) != 0 {
+                Value::Bool(lilv_node_as_bool(self.node) != 0)
             } else {
-                Err(self)
+                unreachable!()
             }
         }
     }
 
-    pub fn as_blank(self) -> Result<Node<'a, Blank>, Self> {
-        unsafe {
-            if lilv_node_is_blank(self.node) != 0 {
-                Ok(self.convert())
-            } else {
-                Err(self)
-            }
-        }
+    pub fn is_uri(&self) -> bool {
+        unsafe { lilv_node_is_uri(self.node) != 0 }
     }
 
-    pub fn as_literal(self) -> Result<Node<'a, Literal>, Self> {
-        unsafe {
-            if lilv_node_is_literal(self.node) != 0 {
-                Ok(self.convert())
-            } else {
-                Err(self)
-            }
-        }
+    pub fn is_blank(&self) -> bool {
+        unsafe { lilv_node_is_blank(self.node) != 0 }
     }
 
-    pub fn as_string(self) -> Result<Node<'a, crate::node::String>, Self> {
-        unsafe {
-            if lilv_node_is_string(self.node) != 0 {
-                Ok(self.convert())
-            } else {
-                Err(self)
-            }
-        }
+    pub fn is_string(&self) -> bool {
+        unsafe { lilv_node_is_string(self.node) != 0 }
     }
 
-    pub fn as_float(self) -> Result<Node<'a, Float>, Self> {
-        unsafe {
-            if lilv_node_is_float(self.node) != 0 {
-                Ok(self.convert())
-            } else {
-                Err(self)
-            }
-        }
+    pub fn is_float(&self) -> bool {
+        unsafe { lilv_node_is_float(self.node) != 0 }
     }
 
-    pub fn as_int(self) -> Result<Node<'a, Int>, Self> {
-        unsafe {
-            if lilv_node_is_int(self.node) != 0 {
-                Ok(self.convert())
-            } else {
-                Err(self)
-            }
-        }
+    pub fn is_int(&self) -> bool {
+        unsafe { lilv_node_is_int(self.node) != 0 }
     }
 
-    pub fn as_bool(self) -> Result<Node<'a, Bool>, Self> {
-        unsafe {
-            if lilv_node_is_bool(self.node) != 0 {
-                Ok(self.convert())
-            } else {
-                Err(self)
-            }
-        }
-    }
-}
-
-impl<'a> NodeImpl<'a> for Node<'a, Uri> {
-    type Target = &'a CStr;
-
-    fn value(&self) -> Self::Target {
-        unsafe { CStr::from_ptr(lilv_node_as_uri(self.node)) }
-    }
-}
-
-impl<'a> NodeImpl<'a> for Node<'a, Blank> {
-    type Target = &'a CStr;
-
-    fn value(&self) -> Self::Target {
-        unsafe { CStr::from_ptr(lilv_node_as_blank(self.node)) }
-    }
-}
-
-impl<'a> Node<'a, Literal> {
-    pub fn as_string(self) -> Result<Node<'a, crate::node::String>, Self> {
-        match self.as_any().as_string() {
-            Ok(node) => Ok(node),
-            Err(node) => Err(node.convert()),
-        }
+    pub fn is_bool(&self) -> bool {
+        unsafe { lilv_node_is_bool(self.node) != 0 }
     }
 
-    pub fn as_float(self) -> Result<Node<'a, Float>, Self> {
-        match self.as_any().as_float() {
-            Ok(node) => Ok(node),
-            Err(node) => Err(node.convert()),
-        }
+    pub fn is_literal(&self) -> bool {
+        unsafe { lilv_node_is_literal(self.node) != 0 }
     }
 
-    pub fn as_int(self) -> Result<Node<'a, Int>, Self> {
-        match self.as_any().as_int() {
-            Ok(node) => Ok(node),
-            Err(node) => Err(node.convert()),
-        }
-    }
-
-    pub fn as_bool(self) -> Result<Node<'a, Bool>, Self> {
-        match self.as_any().as_bool() {
-            Ok(node) => Ok(node),
-            Err(node) => Err(node.convert()),
-        }
-    }
-}
-
-impl<'a> Node<'a, Uri> {
     pub fn get_path(&self, with_hostname: bool) -> Option<(CString, Option<CString>)> {
+        if !self.is_uri() {
+            return None;
+        }
+
         let mut hostname = ptr::null_mut();
 
         let path = unsafe {
@@ -257,41 +244,9 @@ impl<'a> Node<'a, Uri> {
     }
 }
 
-impl<'a> NodeImpl<'a> for Node<'a, crate::node::String> {
-    type Target = &'a CStr;
-
-    fn value(&self) -> Self::Target {
-        unsafe { CStr::from_ptr(lilv_node_as_string(self.node)) }
-    }
-}
-
-impl<'a> NodeImpl<'a> for Node<'a, Float> {
-    type Target = f32;
-
-    fn value(&self) -> Self::Target {
-        unsafe { lilv_node_as_float(self.node) }
-    }
-}
-
-impl<'a> NodeImpl<'a> for Node<'a, Int> {
-    type Target = i32;
-
-    fn value(&self) -> Self::Target {
-        unsafe { lilv_node_as_int(self.node) }
-    }
-}
-
-impl<'a> NodeImpl<'a> for Node<'a, Bool> {
-    type Target = bool;
-
-    fn value(&self) -> Self::Target {
-        unsafe { lilv_node_as_bool(self.node) != 0 }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::node::NodeImpl;
+    use crate::node::Value;
     use crate::world::World;
     use crate::world::WorldImpl;
     use std::ffi::CString;
@@ -307,7 +262,7 @@ mod tests {
         let uri = w.new_uri(&CString::new("http://example.org").unwrap());
         assert_eq!(
             uri.value(),
-            CString::new("http://example.org").unwrap().as_ref()
+            Value::Uri(CString::new("http://example.org").unwrap().as_ref()),
         );
     }
 
@@ -315,7 +270,7 @@ mod tests {
     fn float() {
         let w = world();
         let float = w.new_float(12.0);
-        assert_eq!(float.value(), 12.0);
+        assert_eq!(float.value(), Value::Float(12.0));
         assert_eq!(float == w.new_float(12.0), true);
         assert_ne!(float == w.new_float(121.0), true);
     }
@@ -324,7 +279,7 @@ mod tests {
     fn int() {
         let w = world();
         let int = w.new_int(34);
-        assert_eq!(int.value(), 34);
+        assert_eq!(int.value(), Value::Int(34));
         assert_eq!(int == w.new_int(34), true);
         assert_ne!(int == w.new_int(56), true);
     }
@@ -334,7 +289,8 @@ mod tests {
         let w = world();
         let int = w.new_int(0);
         let float = w.new_float(0.0);
-        assert_ne!(int.as_any() == float.as_any(), true);
+        assert_ne!(int == float, true);
+        assert_ne!(int.value() == float.value(), true);
     }
 
     #[test]

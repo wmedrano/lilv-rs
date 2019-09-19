@@ -1,11 +1,9 @@
 use crate::node::Node;
-use crate::node::Uri;
 use crate::nodes::Nodes;
 use crate::world::ref_node;
 use crate::world::World;
 use crate::Void;
 use std::ffi::CStr;
-use std::marker::PhantomData;
 use std::ops::Deref;
 use std::ptr;
 use std::rc::Rc;
@@ -33,27 +31,23 @@ pub struct UI {
 }
 
 impl UI {
-    pub fn get_uri(&self) -> Node<Uri> {
+    pub fn get_uri(&self) -> Node {
         ref_node(&self.world, unsafe { lilv_ui_get_uri(self.ui) })
     }
 
-    pub fn get_classes(&self) -> Nodes<Uri> {
+    pub fn get_classes(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_ui_get_classes(self.ui) as *mut Void },
             world: self.world.clone(),
             owned: false,
-            _phantom: PhantomData,
         }
     }
 
-    pub fn is_a(&self, class_uri: &Node<Uri>) -> bool {
+    pub fn is_a(&self, class_uri: &Node) -> bool {
         unsafe { lilv_ui_is_a(self.ui, class_uri.node) != 0 }
     }
 
-    pub fn is_supported<'a, 'b, S>(
-        &'a self,
-        container_type: &Node<Uri>,
-    ) -> (UISupportQuality, Node<'b, Uri>)
+    pub fn is_supported<'a, 'b, S>(&'a self, container_type: &Node) -> (UISupportQuality, Node)
     where
         S: UISupport,
         'a: 'b,
@@ -70,11 +64,11 @@ impl UI {
         (quality, ref_node(&self.world, ui_type))
     }
 
-    pub fn get_bundle_uri(&self) -> Node<Uri> {
+    pub fn get_bundle_uri(&self) -> Node {
         ref_node(&self.world, unsafe { lilv_ui_get_bundle_uri(self.ui) })
     }
 
-    pub fn get_binary_uri(&self) -> Node<Uri> {
+    pub fn get_binary_uri(&self) -> Node {
         ref_node(&self.world, unsafe { lilv_ui_get_binary_uri(self.ui) })
     }
 }

@@ -1,7 +1,6 @@
 use crate::collection::Collection;
 use crate::collection::Iter;
 use crate::node::Node;
-use crate::node::Uri;
 use crate::ui::UI;
 use crate::world::World;
 use crate::Void;
@@ -53,7 +52,7 @@ where
 }
 
 impl UIs {
-    pub fn get_by_uri<'a>(&'a self, uri: &Node<Uri>) -> Option<UI> {
+    pub fn get_by_uri<'a>(&'a self, uri: &Node) -> Option<UI> {
         let ptr = unsafe { lilv_uis_get_by_uri(self.uis, uri.node) };
 
         if ptr.is_null() {

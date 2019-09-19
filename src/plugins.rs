@@ -1,7 +1,6 @@
 use crate::collection::Collection;
 use crate::collection::Iter;
 use crate::node::Node;
-use crate::node::Uri;
 use crate::plugin::Plugin;
 use crate::world::World;
 use crate::Void;
@@ -45,7 +44,7 @@ where
 impl Plugins {
     /// Get a plugin with the given URI.
     /// Returns `None` if no plugin with `uri` is found.
-    pub fn get_by_uri<'a>(&'a self, uri: &Node<Uri>) -> Option<Plugin> {
+    pub fn get_by_uri<'a>(&'a self, uri: &Node) -> Option<Plugin> {
         let ptr = unsafe { lilv_plugins_get_by_uri(self.plugins, uri.node) };
 
         if ptr.is_null() {
@@ -74,7 +73,6 @@ impl Plugins {
 
 #[cfg(test)]
 mod tests {
-    use crate::NodeImpl;
     use crate::WorldImpl;
     use crate::*;
     use std::ffi::CString;
@@ -87,7 +85,7 @@ mod tests {
         for plugin in plugins.iter() {
             println!(
                 "{}",
-                CString::from(plugin.get_uri().value())
+                CString::from(plugin.get_uri().value().into_string())
                     .into_string()
                     .unwrap()
             );

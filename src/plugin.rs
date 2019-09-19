@@ -1,8 +1,6 @@
 use crate::instance::Instance;
 use crate::instance::InstanceImpl;
-use crate::node::Any;
 use crate::node::Node;
-use crate::node::Uri;
 use crate::nodes::Nodes;
 use crate::plugin_class::PluginClass;
 use crate::port::Port;
@@ -11,7 +9,6 @@ use crate::world::new_node;
 use crate::world::ref_node;
 use crate::world::World;
 use crate::Void;
-use std::marker::PhantomData;
 use std::ptr;
 use std::rc::Rc;
 
@@ -71,32 +68,31 @@ impl Plugin {
         unsafe { lilv_plugin_verify(self.plugin) != 0 }
     }
 
-    pub fn get_uri(&self) -> Node<Uri> {
+    pub fn get_uri(&self) -> Node {
         ref_node(&self.world, unsafe { lilv_plugin_get_uri(self.plugin) })
     }
 
-    pub fn get_bundle_uri(&self) -> Node<Uri> {
+    pub fn get_bundle_uri(&self) -> Node {
         ref_node(&self.world, unsafe {
             lilv_plugin_get_bundle_uri(self.plugin)
         })
     }
 
-    pub fn get_data_uris(&self) -> Nodes<Uri> {
+    pub fn get_data_uris(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_plugin_get_data_uris(self.plugin) as *mut Void },
             world: self.world.clone(),
             owned: false,
-            _phantom: PhantomData,
         }
     }
 
-    pub fn get_library_uri(&self) -> Node<Uri> {
+    pub fn get_library_uri(&self) -> Node {
         ref_node(&self.world, unsafe {
             lilv_plugin_get_library_uri(self.plugin)
         })
     }
 
-    pub fn get_name(&self) -> Node<crate::node::String> {
+    pub fn get_name(&self) -> Node {
         new_node(&self.world, unsafe { lilv_plugin_get_name(self.plugin) })
     }
 
@@ -107,7 +103,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_value(&self, predicate: &Node<Any>) -> Option<Nodes<Any>> {
+    pub fn get_value(&self, predicate: &Node) -> Option<Nodes> {
         let nodes = unsafe { lilv_plugin_get_value(self.plugin, predicate.node) };
         if nodes.is_null() {
             None
@@ -116,52 +112,47 @@ impl Plugin {
                 nodes,
                 world: self.world.clone(),
                 owned: true,
-                _phantom: PhantomData,
             })
         }
     }
 
-    pub fn has_feature(&self, feature: &Node<Uri>) -> bool {
+    pub fn has_feature(&self, feature: &Node) -> bool {
         unsafe { lilv_plugin_has_feature(self.plugin, feature.node) != 0 }
     }
 
-    pub fn get_supported_features(&self) -> Nodes<Uri> {
+    pub fn get_supported_features(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_plugin_get_supported_features(self.plugin) },
             world: self.world.clone(),
             owned: true,
-            _phantom: PhantomData,
         }
     }
 
-    pub fn get_required_features(&self) -> Nodes<Uri> {
+    pub fn get_required_features(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_plugin_get_required_features(self.plugin) },
             world: self.world.clone(),
             owned: true,
-            _phantom: PhantomData,
         }
     }
 
-    pub fn get_optional_features(&self) -> Nodes<Uri> {
+    pub fn get_optional_features(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_plugin_get_optional_features(self.plugin) },
             world: self.world.clone(),
             owned: true,
-            _phantom: PhantomData,
         }
     }
 
-    pub fn has_extension_data(&self, uri: &Node<Uri>) -> bool {
+    pub fn has_extension_data(&self, uri: &Node) -> bool {
         unsafe { lilv_plugin_has_extension_data(self.plugin, uri.node) != 0 }
     }
 
-    pub fn get_extension_data(&self) -> Nodes<Uri> {
+    pub fn get_extension_data(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_plugin_get_extension_data(self.plugin) },
             world: self.world.clone(),
             owned: true,
-            _phantom: PhantomData,
         }
     }
 
@@ -171,7 +162,7 @@ impl Plugin {
 
     pub fn get_num_ports_of_class<'a, T>(&self, classes: &[T]) -> u32
     where
-        T: AsRef<Node<'a, Uri>>,
+        T: AsRef<Node<'a>>,
     {
         (0..self.get_num_ports())
             .filter(|p| {
@@ -201,10 +192,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_port_by_symbol<'a>(
-        &'a self,
-        symbol: &Node<crate::node::String>,
-    ) -> Option<Port<'a>> {
+    pub fn get_port_by_symbol<'a>(&'a self, symbol: &Node) -> Option<Port<'a>> {
         let ptr = unsafe { lilv_plugin_get_port_by_symbol(self.plugin, symbol.node) };
         if ptr.is_null() {
             None
@@ -219,10 +207,10 @@ impl Plugin {
     pub fn get_port_by_designation<'a, 'b, C>(
         &'a self,
         port_class: C,
-        designation: &'b Node<Uri>,
+        designation: &'b Node,
     ) -> Option<Port<'a>>
     where
-        C: Into<Option<&'b Node<'b, Uri>>>,
+        C: Into<Option<&'b Node<'b>>>,
     {
         let port_class = port_class.into().map_or(ptr::null(), |x| x.node);
         let ptr = unsafe {
@@ -238,7 +226,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_project(&self) -> Option<Node<Any>> {
+    pub fn get_project(&self) -> Option<Node> {
         let node = unsafe { lilv_plugin_get_project(self.plugin) };
         if node.is_null() {
             None
@@ -247,7 +235,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_author_name(&self) -> Option<Node<crate::node::String>> {
+    pub fn get_author_name(&self) -> Option<Node> {
         let node = unsafe { lilv_plugin_get_author_name(self.plugin) };
         if node.is_null() {
             None
@@ -256,7 +244,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_author_email(&self) -> Option<Node<Any>> {
+    pub fn get_author_email(&self) -> Option<Node> {
         let node = unsafe { lilv_plugin_get_author_email(self.plugin) };
         if node.is_null() {
             None
@@ -265,7 +253,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_author_homepage(&self) -> Option<Node<Any>> {
+    pub fn get_author_homepage(&self) -> Option<Node> {
         let node = unsafe { lilv_plugin_get_author_homepage(self.plugin) };
         if node.is_null() {
             None
@@ -278,16 +266,11 @@ impl Plugin {
         unsafe { lilv_plugin_is_replaced(self.plugin) != 0 }
     }
 
-    pub fn get_related<'a, T>(&self, tyep: T) -> Nodes<Any>
-    where
-        T: Into<Option<&'a Node<'a, Any>>>,
-    {
-        let tyep = tyep.into().map_or(ptr::null(), |x| x.node);
+    pub fn get_related<'a, T>(&self, tyep: &Node) -> Nodes {
         Nodes {
-            nodes: unsafe { lilv_plugin_get_related(self.plugin, tyep) },
+            nodes: unsafe { lilv_plugin_get_related(self.plugin, tyep.node) },
             world: self.world.clone(),
             owned: true,
-            _phantom: PhantomData,
         }
     }
 

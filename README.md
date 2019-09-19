@@ -3,22 +3,17 @@
 This is a Rust wrapper for [Lilv](http://drobilla.net/software/lilv),
 the LV2 host library.
 
+**Please be cautious when using this crate!** It may work or break;
+for the moment its intended use is as a dependency for a certain project.
+It attempts to wrap everything nicely in idiomatic ways, but all functionality
+is not tested.
+
 ## Completeness
 
 This crate targets the latest version of Lilv, which is at the time of
 writing, 0.24.2.
 
-This crate is **by no means complete at the moment, and advanced
-features are not yet available.** Below is a list of functions that
-are wrapped, and those that aren't.
-
-### Current progress:
-
-. | n | %
---- | --- | ---
-**done** | 109 | ~64
-**not done** | 60 |
-**total** | 169 |
+Below is a list of functions that are wrapped, and those that aren't.
 
 ### Done
 
@@ -128,6 +123,7 @@ are wrapped, and those that aren't.
     lilv_port_get_name
     lilv_port_get_classes
     lilv_port_get_range
+    lilv_port_get_scale_points
     lilv_free
     lilv_node_get_turtle_token
     lilv_plugin_class_get_parent_uri
@@ -141,6 +137,12 @@ are wrapped, and those that aren't.
     lilv_plugin_classes_next
     lilv_plugin_classes_is_end
     lilv_plugin_classes_get_by_uri
+    lilv_scale_points_free
+    lilv_scale_points_size
+    lilv_scale_points_begin
+    lilv_scale_points_get
+    lilv_scale_points_next
+    lilv_scale_points_is_end
     lilv_ui_get_uri
     lilv_ui_get_classes
     lilv_ui_is_a
@@ -156,20 +158,6 @@ are wrapped, and those that aren't.
     lilv_uis_get_by_uri
     lilv_scale_point_get_label
     lilv_scale_point_get_value
-
-### Missing
-
-    lilv_uri_to_path
-    lilv_scale_points_free
-    lilv_scale_points_size
-    lilv_scale_points_begin
-    lilv_scale_points_get
-    lilv_scale_points_next
-    lilv_scale_points_is_end
-    lilv_nodes_get_first
-    lilv_plugin_write_description
-    lilv_plugin_write_manifest_entry
-    lilv_port_get_scale_points
     lilv_state_new_from_world
     lilv_state_new_from_file
     lilv_state_new_from_string
@@ -187,3 +175,10 @@ are wrapped, and those that aren't.
     lilv_state_save
     lilv_state_to_string
     lilv_state_delete
+
+### Missing
+
+    lilv_uri_to_path [deprecated]
+    lilv_nodes_get_first [unnecessary]
+    lilv_plugin_write_description [too much C]
+    lilv_plugin_write_manifest_entry [too much C]

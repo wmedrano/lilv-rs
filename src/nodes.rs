@@ -22,14 +22,13 @@ extern "C" {
 // fn lilv_nodes_get_first(nodes: *const Void) -> *const Void;
 }
 
-pub struct Nodes<T> {
+pub struct Nodes {
     pub(crate) nodes: *mut Void,
     pub(crate) world: Rc<World>,
     pub(crate) owned: bool,
-    pub(crate) _phantom: PhantomData<T>,
 }
 
-impl<T> Drop for Nodes<T> {
+impl Drop for Nodes {
     fn drop(&mut self) {
         if self.owned {
             unsafe { lilv_nodes_free(self.nodes) }
@@ -37,17 +36,17 @@ impl<T> Drop for Nodes<T> {
     }
 }
 
-impl<T> AsRef<*const Void> for Nodes<T> {
+impl AsRef<*const Void> for Nodes {
     fn as_ref(&self) -> &*const Void {
         unsafe { mem::transmute(&self.nodes) }
     }
 }
 
-impl<'a, T> Collection<'a> for Nodes<T>
+impl<'a> Collection<'a> for Nodes
 where
     Self: 'a,
 {
-    type Target = Node<'a, T>;
+    type Target = Node<'a>;
 
     fn get(&self, i: *mut Void) -> Self::Target {
         Node {
@@ -59,8 +58,8 @@ where
     }
 }
 
-impl<T> Nodes<T> {
-    pub fn contains(&self, value: &Node<T>) -> bool {
+impl Nodes {
+    pub fn contains(&self, value: &Node) -> bool {
         unsafe { lilv_nodes_contains(self.nodes, value.node) != 0 }
     }
 
@@ -69,7 +68,6 @@ impl<T> Nodes<T> {
             nodes: unsafe { lilv_nodes_merge(self.nodes, other.nodes) },
             world: self.world.clone(),
             owned: true,
-            _phantom: PhantomData,
         }
     }
 
