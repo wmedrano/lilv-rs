@@ -99,19 +99,19 @@ pub trait WorldImpl {
     fn get_all_plugins(&self) -> Plugins;
     fn find_nodes<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> Option<Nodes>
     where
-        S: Into<Option<Node<'a>>>,
-        P: Into<Option<Node<'a>>>,
-        O: Into<Option<Node<'a>>>;
+        S: Into<Option<&'a Node<'a>>>,
+        P: Into<Option<&'a Node<'a>>>,
+        O: Into<Option<&'a Node<'a>>>;
     fn get<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> Option<Node<'a>>
     where
-        S: Into<Option<Node<'a>>>,
-        P: Into<Option<Node<'a>>>,
-        O: Into<Option<Node<'a>>>;
+        S: Into<Option<&'a Node<'a>>>,
+        P: Into<Option<&'a Node<'a>>>,
+        O: Into<Option<&'a Node<'a>>>;
     fn ask<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> bool
     where
-        S: Into<Option<Node<'a>>>,
-        P: Into<Option<Node<'a>>>,
-        O: Into<Option<Node<'a>>>;
+        S: Into<Option<&'a Node<'a>>>,
+        P: Into<Option<&'a Node<'a>>>,
+        O: Into<Option<&'a Node<'a>>>;
     fn get_symbol<'a>(&self, subject: &Node<'a>) -> Option<Node>;
     fn new_uri<'a>(&self, uri: &CStr) -> Node<'a>;
     fn new_file_uri<'a>(&self, host: Option<&CStr>, path: &CStr) -> Node<'a>;
@@ -213,9 +213,9 @@ impl WorldImpl for Rc<World> {
 
     fn find_nodes<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> Option<Nodes>
     where
-        S: Into<Option<Node<'a>>>,
-        P: Into<Option<Node<'a>>>,
-        O: Into<Option<Node<'a>>>,
+        S: Into<Option<&'a Node<'a>>>,
+        P: Into<Option<&'a Node<'a>>>,
+        O: Into<Option<&'a Node<'a>>>,
     {
         let subject = subject.into().map_or(ptr::null(), |x| x.node);
         let predicate = predicate.into().map_or(ptr::null(), |x| x.node);
@@ -235,9 +235,9 @@ impl WorldImpl for Rc<World> {
 
     fn get<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> Option<Node<'a>>
     where
-        S: Into<Option<Node<'a>>>,
-        P: Into<Option<Node<'a>>>,
-        O: Into<Option<Node<'a>>>,
+        S: Into<Option<&'a Node<'a>>>,
+        P: Into<Option<&'a Node<'a>>>,
+        O: Into<Option<&'a Node<'a>>>,
     {
         let subject = subject.into().map_or(ptr::null(), |x| x.node);
         let predicate = predicate.into().map_or(ptr::null(), |x| x.node);
@@ -252,9 +252,9 @@ impl WorldImpl for Rc<World> {
 
     fn ask<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> bool
     where
-        S: Into<Option<Node<'a>>>,
-        P: Into<Option<Node<'a>>>,
-        O: Into<Option<Node<'a>>>,
+        S: Into<Option<&'a Node<'a>>>,
+        P: Into<Option<&'a Node<'a>>>,
+        O: Into<Option<&'a Node<'a>>>,
     {
         let subject = subject.into().map_or(ptr::null(), |x| x.node);
         let predicate = predicate.into().map_or(ptr::null(), |x| x.node);
