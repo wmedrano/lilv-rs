@@ -1,6 +1,6 @@
 use crate::collection::Collection;
 use crate::collection::Iter;
-use crate::plugin_class::PluginClass;
+use crate::scale_point::ScalePoint;
 use crate::world::World;
 use crate::Void;
 use std::rc::Rc;
@@ -31,11 +31,11 @@ impl<'a> Collection<'a> for ScalePoints
 where
     Self: 'a,
 {
-    type Target = PluginClass;
+    type Target = ScalePoint;
 
     fn get(&self, i: *mut Void) -> Self::Target {
-        PluginClass {
-            plugin_class: unsafe { lilv_scale_points_get(self.scale_points, i) } as *mut Void,
+        ScalePoint {
+            point: unsafe { lilv_scale_points_get(self.scale_points, i) } as *mut Void,
             world: self.world.clone(),
         }
     }
