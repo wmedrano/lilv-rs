@@ -125,7 +125,7 @@ Below is a list of functions that are wrapped, and those that aren't.
     lilv_port_get_range
     lilv_port_get_scale_points
     lilv_free
-    lilv_node_get_turtle_token
+    lilv_node_turtle_token
     lilv_plugin_class_get_parent_uri
     lilv_plugin_class_get_uri
     lilv_plugin_class_get_label

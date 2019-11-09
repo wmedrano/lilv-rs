@@ -204,17 +204,17 @@ impl State {
         }
     }
 
-    pub fn get_num_properties(&self) -> u32 {
+    pub fn num_properties(&self) -> u32 {
         unsafe { lilv_state_get_num_properties(self.state) }
     }
 
-    pub fn get_plugin_uri(&self) -> Node {
+    pub fn plugin_uri(&self) -> Node {
         ref_node(&self.world, unsafe {
             lilv_state_get_plugin_uri(self.state)
         })
     }
 
-    pub fn get_uri(&self) -> Option<Node> {
+    pub fn uri(&self) -> Option<Node> {
         let node = unsafe { lilv_state_get_uri(self.state) };
         if node.is_null() {
             None
@@ -223,7 +223,7 @@ impl State {
         }
     }
 
-    pub fn get_label(&self) -> &CStr {
+    pub fn label(&self) -> &CStr {
         unsafe { CStr::from_ptr(lilv_state_get_label(self.state)) }
     }
 

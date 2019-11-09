@@ -126,9 +126,9 @@ impl<'a> Value<'a> {
 }
 
 impl<'a> Node<'a> {
-    pub fn get_turtle_token(&self) -> CString {
+    pub fn turtle_token(&self) -> CString {
         unsafe {
-            let token = lilv_node_get_turtle_token(self.node);
+            let token = lilv_node_turtle_token(self.node);
             let ret = CString::from(CStr::from_ptr(token));
             lilv_free(token as *mut Void);
             ret
