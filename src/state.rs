@@ -188,7 +188,7 @@ impl State {
         State {
             state: lilv_state_new_from_instance(
                 plugin.plugin,
-                instance.0 as *mut LilvInstance,
+                instance.as_mut_ptr(),
                 &mut fake_map,
                 scratch_dir.map_or_else(std::ptr::null, |x| x.as_ptr()),
                 copy_dir.map_or_else(std::ptr::null, |x| x.as_ptr()),
@@ -268,7 +268,7 @@ impl State {
         let mut wrap = WrapFn(set_value);
         lilv_state_restore(
             self.state,
-            instance.0 as *mut LilvInstance,
+            instance.as_mut_ptr(),
             Some(fake_set_port_value::<F>),
             &mut wrap as *mut _ as *mut Void,
             flags,

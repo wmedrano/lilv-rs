@@ -1,100 +1,125 @@
 use lilv_sys::*;
-use lv2_raw::LV2Descriptor;
-use lv2_raw::LV2Handle;
+use lv2_raw::{LV2Descriptor, LV2Handle};
+use std::convert::{AsMut, AsRef};
 use std::ffi::CStr;
 
-#[repr(C)]
-pub(crate) struct InstanceImpl(LilvInstance);
+/// An instance of an LV2 plugin.
+pub struct Instance(*mut LilvInstance);
 
-impl InstanceImpl {
-    #[inline(always)]
-    pub unsafe fn get_uri(&self) -> *const libc::c_char {
-        (*self.0.lv2_descriptor).uri
-    }
-
-    #[inline(always)]
-    pub unsafe fn connect_port(&mut self, port_index: u32, data_location: *mut libc::c_void) {
-        ((*self.0.lv2_descriptor).connect_port)(self.0.lv2_handle, port_index, data_location);
-    }
-
-    #[inline(always)]
-    pub unsafe fn activate(&mut self) {
-        if let Some(activate) = (*self.0.lv2_descriptor).activate {
-            activate(self.0.lv2_handle)
-        }
-    }
-
-    #[inline(always)]
-    pub unsafe fn run(&mut self, sample_count: u32) {
-        ((*self.0.lv2_descriptor).run)(self.0.lv2_handle, sample_count);
-    }
-
-    #[inline(always)]
-    pub unsafe fn deactivate(&mut self) {
-        if let Some(deactivate) = (*self.0.lv2_descriptor).deactivate {
-            deactivate(self.0.lv2_handle)
-        }
-    }
-
-    #[inline(always)]
-    pub unsafe fn get_descriptor(&self) -> *const LV2Descriptor {
-        self.0.lv2_descriptor
-    }
-}
-
-#[repr(C)]
-pub struct Instance(pub(crate) *mut InstanceImpl);
+/// An instance of an LV2 plugin that is ready for running.
+///
+/// It is created by calling `activate` on an `Instance`.
+pub struct ActiveInstance(Instance);
 
 unsafe impl Send for Instance {}
+unsafe impl Send for ActiveInstance {}
 
 impl Instance {
-    #[inline(always)]
-    pub unsafe fn get_uri(&self) -> &CStr {
-        CStr::from_ptr((*self.0).get_uri())
+    /// Create a new instance from a raw pointer.
+    pub unsafe fn from_raw(raw: *mut LilvInstance) -> Instance {
+        Instance(raw)
     }
 
+    /// Return the raw pointer for this underlying instance.
     #[inline(always)]
-    pub unsafe fn connect_port(&mut self, port_index: u32, data_location: *mut libc::c_void) {
-        (*self.0).connect_port(port_index, data_location);
+    pub fn as_mut_ptr(&mut self) -> *mut LilvInstance {
+        self.0
     }
 
+    /// The descriptor for the LV2 plugin.
     #[inline(always)]
-    pub unsafe fn activate(&mut self) {
-        (*self.0).activate();
+    pub fn descriptor(&self) -> &LV2Descriptor {
+        unsafe { (*self.0).lv2_descriptor.as_ref().unwrap() }
     }
 
+    /// The handle for the LV2 plugin.
     #[inline(always)]
-    pub unsafe fn run(&mut self, sample_count: u32) {
-        (*self.0).run(sample_count);
+    pub fn handle(&self) -> LV2Handle {
+        unsafe { (*self.0).lv2_handle }
     }
 
+    /// The uri for the plugin.
     #[inline(always)]
-    pub unsafe fn deactivate(&mut self) {
-        (*self.0).deactivate();
+    pub fn uri(&self) -> &CStr {
+        unsafe { CStr::from_ptr(self.descriptor().uri) }
     }
 
+    /// Connect the port with the given index to the given data.
     #[inline(always)]
-    pub unsafe fn get_extension_data(&self, uri: &CStr) -> *const libc::c_void {
-        let f = self.get_descriptor().extension_data;
+    pub unsafe fn connect_port<T>(&mut self, port_index: u32, data: *mut T) {
+        (self.descriptor().connect_port)(self.handle(), port_index, data as *mut core::ffi::c_void)
+    }
+
+    /// Activate the plugin so that it can be run.
+    #[inline(always)]
+    pub fn activate(self) -> ActiveInstance {
+        if let Some(activate) = self.descriptor().activate {
+            activate(self.handle())
+        }
+        ActiveInstance(self)
+    }
+
+    /// The extension data for uri from the plugin.
+    #[inline(always)]
+    pub unsafe fn extension_data(&self, uri: &CStr) -> *const libc::c_void {
+        let f = self.descriptor().extension_data;
         f(uri.as_ptr() as *const u8)
-    }
-
-    #[inline(always)]
-    pub unsafe fn get_descriptor(&self) -> &LV2Descriptor {
-        &*(*self.0).get_descriptor()
-    }
-
-    #[inline(always)]
-    pub unsafe fn get_handle(&self) -> LV2Handle {
-        (*self.0).0.lv2_handle
     }
 }
 
 impl Drop for Instance {
     fn drop(&mut self) {
-        unsafe {
-            let inner = &*self.0;
-            ((*inner.0.lv2_descriptor).cleanup)(inner.0.lv2_handle)
-        };
+        let descriptor = self.descriptor();
+        (descriptor.cleanup)(self.handle())
+    }
+}
+
+impl ActiveInstance {
+    /// Get the underlying instance of the plugin.
+    #[inline(always)]
+    pub fn as_instance(&self) -> &Instance {
+        &self.0
+    }
+
+    /// Get the underlying instance of the plugin.
+    #[inline(always)]
+    pub fn as_mut_instance(&mut self) -> &mut Instance {
+        &mut self.0
+    }
+
+    /// Run the plugin for the given amount of frames.
+    #[inline(always)]
+    pub fn run(&mut self, sample_count: u32) {
+        (self.as_instance().descriptor().run)(self.as_instance().handle(), sample_count)
+    }
+
+    /// Deactivate the plugin and return the underlying instance.
+    ///
+    /// This is not required as the instance will call deactivate on drop.
+    pub fn deactivate(self) -> Instance {
+        let mut mut_self = self;
+        // We pass along the pointer and rely on `ActiveInstance`s drop implementation
+        // to deactivate.
+        Instance(mut_self.0.as_mut_ptr())
+    }
+}
+
+impl AsRef<Instance> for ActiveInstance {
+    fn as_ref(&self) -> &Instance {
+        self.as_instance()
+    }
+}
+
+impl AsMut<Instance> for ActiveInstance {
+    fn as_mut(&mut self) -> &mut Instance {
+        self.as_mut_instance()
+    }
+}
+
+impl Drop for ActiveInstance {
+    fn drop(&mut self) {
+        if let Some(deactivate) = self.as_instance().descriptor().deactivate {
+            deactivate(self.as_instance().handle())
+        }
     }
 }

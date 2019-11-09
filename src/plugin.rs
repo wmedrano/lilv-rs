@@ -1,5 +1,3 @@
-use crate::instance::Instance;
-use crate::instance::InstanceImpl;
 use crate::node::Node;
 use crate::nodes::Nodes;
 use crate::plugin_class::PluginClass;
@@ -269,12 +267,12 @@ impl Plugin {
         &self,
         sample_rate: f64,
         features: *const *const lv2_raw::LV2Feature,
-    ) -> Option<Instance> {
+    ) -> Option<crate::Instance> {
         let ptr = lilv_plugin_instantiate(self.plugin, sample_rate, features);
         if ptr.is_null() {
             None
         } else {
-            Some(Instance(ptr as *mut InstanceImpl))
+            Some(crate::Instance::from_raw(ptr))
         }
     }
 
