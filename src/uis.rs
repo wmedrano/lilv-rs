@@ -42,7 +42,7 @@ where
 }
 
 impl UIs {
-    pub fn get_by_uri<'a>(&'a self, uri: &Node) -> Option<UI> {
+    pub fn by_uri<'a>(&'a self, uri: &Node) -> Option<UI> {
         let ptr = unsafe { lilv_uis_get_by_uri(self.uis, uri.node) };
 
         if ptr.is_null() {

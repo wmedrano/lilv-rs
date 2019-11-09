@@ -15,11 +15,11 @@ pub struct UI {
 }
 
 impl UI {
-    pub fn get_uri(&self) -> Node {
+    pub fn uri(&self) -> Node {
         ref_node(&self.world, unsafe { lilv_ui_get_uri(self.ui) })
     }
 
-    pub fn get_classes(&self) -> Nodes {
+    pub fn classes(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_ui_get_classes(self.ui) as *mut Void },
             world: self.world.clone(),
@@ -48,11 +48,11 @@ impl UI {
         (quality, ref_node(&self.world, ui_type))
     }
 
-    pub fn get_bundle_uri(&self) -> Node {
+    pub fn bundle_uri(&self) -> Node {
         ref_node(&self.world, unsafe { lilv_ui_get_bundle_uri(self.ui) })
     }
 
-    pub fn get_binary_uri(&self) -> Node {
+    pub fn binary_uri(&self) -> Node {
         ref_node(&self.world, unsafe { lilv_ui_get_binary_uri(self.ui) })
     }
 }

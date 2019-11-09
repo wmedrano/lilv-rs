@@ -10,13 +10,13 @@ pub struct ScalePoint {
 }
 
 impl ScalePoint {
-    pub fn get_label(&self) -> Node {
+    pub fn label(&self) -> Node {
         ref_node(&self.world, unsafe {
             lilv_scale_point_get_label(self.point)
         })
     }
 
-    pub fn get_value(&self) -> Node {
+    pub fn value(&self) -> Node {
         ref_node(&self.world, unsafe {
             lilv_scale_point_get_value(self.point)
         })

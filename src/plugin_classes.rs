@@ -36,7 +36,7 @@ where
 }
 
 impl PluginClasses {
-    pub fn get_by_uri<'a>(&'a self, uri: &Node) -> Option<PluginClass> {
+    pub fn by_uri<'a>(&'a self, uri: &Node) -> Option<PluginClass> {
         let ptr = unsafe { lilv_plugin_classes_get_by_uri(self.plugin_classes, uri.node) };
         if ptr.is_null() {
             None

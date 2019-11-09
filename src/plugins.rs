@@ -35,7 +35,7 @@ where
 impl Plugins {
     /// Get a plugin with the given URI.
     /// Returns `None` if no plugin with `uri` is found.
-    pub fn get_by_uri<'a>(&'a self, uri: &Node) -> Option<Plugin> {
+    pub fn by_uri<'a>(&'a self, uri: &Node) -> Option<Plugin> {
         let ptr = unsafe { lilv_plugins_get_by_uri(self.plugins, uri.node) };
 
         if ptr.is_null() {
@@ -72,11 +72,11 @@ mod tests {
     fn it_works() {
         let w = World::new().unwrap();
         w.load_all();
-        let plugins = w.get_all_plugins();
+        let plugins = w.all_plugins();
         for plugin in plugins.iter() {
             println!(
                 "{}",
-                CString::from(plugin.get_uri().value().into_string())
+                CString::from(plugin.uri().value().into_string())
                     .into_string()
                     .unwrap()
             );

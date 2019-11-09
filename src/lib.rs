@@ -92,8 +92,8 @@ mod tests {
     fn hello_world() {
         let w = World::new().unwrap();
         w.load_all();
-        let plugins = w.get_all_plugins();
+        let plugins = w.all_plugins();
         let node = w.new_uri(&CString::new("http://lv2plug.in/plugins/eg-amp").unwrap());
-        let _plugin = plugins.get_by_uri(&node);
+        let _plugin = plugins.by_uri(&node);
     }
 }

@@ -14,13 +14,13 @@ pub struct Port<'a> {
 }
 
 impl<'a> Port<'a> {
-    pub fn get_node(&self) -> Node {
+    pub fn node(&self) -> Node {
         ref_node(&self.plugin.world.clone(), unsafe {
             lilv_port_get_node(self.plugin.plugin, self.port)
         })
     }
 
-    pub fn get_value(&self, predicate: &Node) -> Option<Nodes> {
+    pub fn value(&self, predicate: &Node) -> Option<Nodes> {
         let nodes = unsafe { lilv_port_get_value(self.plugin.plugin, self.port, predicate.node) };
         if nodes.is_null() {
             None
@@ -42,7 +42,7 @@ impl<'a> Port<'a> {
         }
     }
 
-    pub fn get_properties(&self) -> Nodes {
+    pub fn properties(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_port_get_properties(self.plugin.plugin, self.port) },
             world: self.plugin.world.clone(),
@@ -58,23 +58,23 @@ impl<'a> Port<'a> {
         unsafe { lilv_port_supports_event(self.plugin.plugin, self.port, event_type.node) }
     }
 
-    pub fn get_index(&self) -> u32 {
+    pub fn index(&self) -> u32 {
         unsafe { lilv_port_get_index(self.plugin.plugin, self.port) }
     }
 
-    pub fn get_symbol(&self) -> Node {
+    pub fn symbol(&self) -> Node {
         ref_node(&self.plugin.world, unsafe {
             lilv_port_get_symbol(self.plugin.plugin, self.port)
         })
     }
 
-    pub fn get_name(&self) -> Node {
+    pub fn name(&self) -> Node {
         new_node(&self.plugin.world, unsafe {
             lilv_port_get_name(self.plugin.plugin, self.port)
         })
     }
 
-    pub fn get_classes(&self) -> Nodes {
+    pub fn classes(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_port_get_classes(self.plugin.plugin, self.port) as *mut Void },
             world: self.plugin.world.clone(),
@@ -82,7 +82,7 @@ impl<'a> Port<'a> {
         }
     }
 
-    pub fn get_range(&self) -> (Option<Node>, Option<Node>, Option<Node>) {
+    pub fn range(&self) -> (Option<Node>, Option<Node>, Option<Node>) {
         let mut def = ptr::null_mut();
         let mut min = ptr::null_mut();
         let mut max = ptr::null_mut();
@@ -106,7 +106,7 @@ impl<'a> Port<'a> {
         )
     }
 
-    pub fn get_scale_points(&self) -> ScalePoints {
+    pub fn scale_points(&self) -> ScalePoints {
         ScalePoints {
             scale_points: unsafe { lilv_port_get_scale_points(self.plugin.plugin, self.port) },
             owned: true,

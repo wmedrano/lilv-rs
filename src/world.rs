@@ -41,6 +41,14 @@ impl World {
             Some(Rc::new(World(RwLock::new(ptr))))
         }
     }
+
+    pub fn with_load_all() -> Option<Rc<World>> {
+        let world = World::new();
+        if let Some(world) = &world {
+            world.load_all();
+        }
+        world
+    }
 }
 
 pub trait WorldImpl {
@@ -52,9 +60,9 @@ pub trait WorldImpl {
     fn unload_bundle<'a>(&self, bundle_uri: &Node<'a>) -> Result<(), ()>;
     fn load_resource<'a>(&self, bundle_uri: &Node<'a>) -> Result<usize, ()>;
     fn unload_resource<'a>(&self, bundle_uri: &Node<'a>) -> Result<(), ()>;
-    fn get_plugin_class(&self) -> PluginClass;
-    fn get_plugin_classes(&self) -> PluginClasses;
-    fn get_all_plugins(&self) -> Plugins;
+    fn plugin_class(&self) -> PluginClass;
+    fn plugin_classes(&self) -> PluginClasses;
+    fn all_plugins(&self) -> Plugins;
     fn find_nodes<'a, S, P, O>(&self, subject: S, predicate: P, object: O) -> Option<Nodes>
     where
         S: Into<Option<&'a Node<'a>>>,
@@ -70,7 +78,7 @@ pub trait WorldImpl {
         S: Into<Option<&'a Node<'a>>>,
         P: Into<Option<&'a Node<'a>>>,
         O: Into<Option<&'a Node<'a>>>;
-    fn get_symbol<'a>(&self, subject: &Node<'a>) -> Option<Node>;
+    fn symbol<'a>(&self, subject: &Node<'a>) -> Option<Node>;
     fn new_uri<'a>(&self, uri: &CStr) -> Node<'a>;
     fn new_file_uri<'a>(&self, host: Option<&CStr>, path: &CStr) -> Node<'a>;
     fn new_string(&self, str: &CStr) -> Node;
@@ -139,7 +147,7 @@ impl WorldImpl for Rc<World> {
         }
     }
 
-    fn get_plugin_class(&self) -> PluginClass {
+    fn plugin_class(&self) -> PluginClass {
         PluginClass {
             plugin_class: unsafe { lilv_world_get_plugin_class(*self.0.read().unwrap()) }
                 as *mut LilvPluginClass,
@@ -147,7 +155,7 @@ impl WorldImpl for Rc<World> {
         }
     }
 
-    fn get_plugin_classes(&self) -> PluginClasses {
+    fn plugin_classes(&self) -> PluginClasses {
         let plugin_classes: *const LilvPluginClasses =
             unsafe { lilv_world_get_plugin_classes(*self.0.read().unwrap()) };
         PluginClasses {
@@ -163,7 +171,7 @@ impl WorldImpl for Rc<World> {
     /// loaded into memory until a call to a method on [`Plugin`](struct.Plugin.html) results in
     /// a query (at which time the data is cached with the [`Plugin`](struct.Plugin.html) so future
     /// queries are very fast).
-    fn get_all_plugins(&self) -> Plugins {
+    fn all_plugins(&self) -> Plugins {
         Plugins {
             plugins: unsafe { lilv_world_get_all_plugins(*self.0.write().unwrap()) },
             world: self.clone(),
@@ -221,7 +229,7 @@ impl WorldImpl for Rc<World> {
         unsafe { lilv_world_ask(*self.0.write().unwrap(), subject, predicate, object) }
     }
 
-    fn get_symbol<'a>(&self, subject: &Node<'a>) -> Option<Node> {
+    fn symbol<'a>(&self, subject: &Node<'a>) -> Option<Node> {
         let node = unsafe { lilv_world_get_symbol(*self.0.write().unwrap(), subject.node) };
         if node.is_null() {
             None

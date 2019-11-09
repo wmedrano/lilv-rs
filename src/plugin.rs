@@ -21,17 +21,17 @@ impl Plugin {
         unsafe { lilv_plugin_verify(self.plugin) }
     }
 
-    pub fn get_uri(&self) -> Node {
+    pub fn uri(&self) -> Node {
         ref_node(&self.world, unsafe { lilv_plugin_get_uri(self.plugin) })
     }
 
-    pub fn get_bundle_uri(&self) -> Node {
+    pub fn bundle_uri(&self) -> Node {
         ref_node(&self.world, unsafe {
             lilv_plugin_get_bundle_uri(self.plugin)
         })
     }
 
-    pub fn get_data_uris(&self) -> Nodes {
+    pub fn data_uris(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_plugin_get_data_uris(self.plugin) as *mut Void },
             world: self.world.clone(),
@@ -39,24 +39,24 @@ impl Plugin {
         }
     }
 
-    pub fn get_library_uri(&self) -> Node {
+    pub fn library_uri(&self) -> Node {
         ref_node(&self.world, unsafe {
             lilv_plugin_get_library_uri(self.plugin)
         })
     }
 
-    pub fn get_name(&self) -> Node {
+    pub fn name(&self) -> Node {
         new_node(&self.world, unsafe { lilv_plugin_get_name(self.plugin) })
     }
 
-    pub fn get_class(&self) -> PluginClass {
+    pub fn class(&self) -> PluginClass {
         PluginClass {
             plugin_class: unsafe { lilv_plugin_get_class(self.plugin) as *mut LilvPluginClass },
             world: self.world.clone(),
         }
     }
 
-    pub fn get_value(&self, predicate: &Node) -> Option<Nodes> {
+    pub fn value(&self, predicate: &Node) -> Option<Nodes> {
         let nodes = unsafe { lilv_plugin_get_value(self.plugin, predicate.node) };
         if nodes.is_null() {
             None
@@ -73,7 +73,7 @@ impl Plugin {
         unsafe { lilv_plugin_has_feature(self.plugin, feature.node) }
     }
 
-    pub fn get_supported_features(&self) -> Nodes {
+    pub fn supported_features(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_plugin_get_supported_features(self.plugin) },
             world: self.world.clone(),
@@ -81,7 +81,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_required_features(&self) -> Nodes {
+    pub fn required_features(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_plugin_get_required_features(self.plugin) },
             world: self.world.clone(),
@@ -89,7 +89,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_optional_features(&self) -> Nodes {
+    pub fn optional_features(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_plugin_get_optional_features(self.plugin) },
             world: self.world.clone(),
@@ -101,7 +101,7 @@ impl Plugin {
         unsafe { lilv_plugin_has_extension_data(self.plugin, uri.node) }
     }
 
-    pub fn get_extension_data(&self) -> Nodes {
+    pub fn extension_data(&self) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_plugin_get_extension_data(self.plugin) },
             world: self.world.clone(),
@@ -109,17 +109,17 @@ impl Plugin {
         }
     }
 
-    pub fn get_num_ports(&self) -> u32 {
+    pub fn num_ports(&self) -> u32 {
         unsafe { lilv_plugin_get_num_ports(self.plugin) }
     }
 
-    pub fn get_num_ports_of_class<'a, T>(&self, classes: &[T]) -> u32
+    pub fn num_ports_of_class<'a, T>(&self, classes: &[T]) -> u32
     where
         T: AsRef<Node<'a>>,
     {
-        (0..self.get_num_ports())
+        (0..self.num_ports())
             .filter(|p| {
-                let port = self.get_port_by_index(*p).unwrap();
+                let port = self.port_by_index(*p).unwrap();
                 classes.iter().all(|cls| port.is_a(cls.as_ref()))
             })
             .count() as u32
@@ -129,11 +129,11 @@ impl Plugin {
         unsafe { lilv_plugin_has_latency(self.plugin) }
     }
 
-    pub fn get_latency_port_index(&self) -> u32 {
+    pub fn latency_port_index(&self) -> u32 {
         unsafe { lilv_plugin_get_latency_port_index(self.plugin) }
     }
 
-    pub fn get_port_by_index(&self, index: u32) -> Option<Port<'_>> {
+    pub fn port_by_index(&self, index: u32) -> Option<Port<'_>> {
         let ptr = unsafe { lilv_plugin_get_port_by_index(self.plugin, index) };
         if ptr.is_null() {
             None
@@ -145,7 +145,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_port_by_symbol<'a>(&'a self, symbol: &Node) -> Option<Port<'a>> {
+    pub fn port_by_symbol<'a>(&'a self, symbol: &Node) -> Option<Port<'a>> {
         let ptr = unsafe { lilv_plugin_get_port_by_symbol(self.plugin, symbol.node) };
         if ptr.is_null() {
             None
@@ -157,7 +157,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_port_by_designation<'a, 'b, C>(
+    pub fn port_by_designation<'a, 'b, C>(
         &'a self,
         port_class: C,
         designation: &'b Node,
@@ -179,7 +179,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_project(&self) -> Option<Node> {
+    pub fn project(&self) -> Option<Node> {
         let node = unsafe { lilv_plugin_get_project(self.plugin) };
         if node.is_null() {
             None
@@ -188,7 +188,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_author_name(&self) -> Option<Node> {
+    pub fn author_name(&self) -> Option<Node> {
         let node = unsafe { lilv_plugin_get_author_name(self.plugin) };
         if node.is_null() {
             None
@@ -197,7 +197,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_author_email(&self) -> Option<Node> {
+    pub fn author_email(&self) -> Option<Node> {
         let node = unsafe { lilv_plugin_get_author_email(self.plugin) };
         if node.is_null() {
             None
@@ -206,7 +206,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_author_homepage(&self) -> Option<Node> {
+    pub fn author_homepage(&self) -> Option<Node> {
         let node = unsafe { lilv_plugin_get_author_homepage(self.plugin) };
         if node.is_null() {
             None
@@ -219,7 +219,7 @@ impl Plugin {
         unsafe { lilv_plugin_is_replaced(self.plugin) }
     }
 
-    pub fn get_related<T>(&self, tyep: &Node) -> Nodes {
+    pub fn related<T>(&self, tyep: &Node) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_plugin_get_related(self.plugin, tyep.node) },
             world: self.world.clone(),
@@ -227,7 +227,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_port_ranges_float<'a, Min, Max, Def>(
+    pub fn port_ranges_float<'a, Min, Max, Def>(
         &self,
         min_values: Min,
         max_values: Max,
@@ -247,10 +247,10 @@ impl Plugin {
             (Some(a), None, Some(b)) => (a.len() == b.len(), a.len()),
             (None, Some(a), Some(b)) => (a.len() == b.len(), a.len()),
             (Some(a), Some(b), Some(c)) => (a.len() == b.len() && b.len() == c.len(), a.len()),
-            _ => (true, self.get_num_ports() as usize),
+            _ => (true, self.num_ports() as usize),
         };
 
-        if !equal_sizes || size != self.get_num_ports() as usize {
+        if !equal_sizes || size != self.num_ports() as usize {
             return Err(());
         }
 
@@ -276,7 +276,7 @@ impl Plugin {
         }
     }
 
-    pub fn get_uis(&self) -> UIs {
+    pub fn uis(&self) -> UIs {
         UIs {
             uis: unsafe { lilv_plugin_get_uis(self.plugin) },
             owned: true,
