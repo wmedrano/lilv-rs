@@ -3,58 +3,16 @@ use crate::nodes::Nodes;
 use crate::plugin_class::PluginClass;
 use crate::plugin_classes::PluginClasses;
 use crate::plugins::Plugins;
-use crate::Void;
+use lilv_sys::*;
 use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::ptr;
 use std::rc::Rc;
 use std::sync::RwLock;
 
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_world_new() -> *mut Void;
-    fn lilv_world_set_option(world: *mut Void, uri: *const i8, value: *const Void);
-    fn lilv_world_free(world: *mut Void);
-    fn lilv_world_load_all(world: *mut Void);
-    fn lilv_world_load_bundle(world: *mut Void, bundle_uri: *const Void);
-    fn lilv_world_load_specifications(world: *mut Void);
-    fn lilv_world_load_plugin_classes(world: *mut Void);
-    fn lilv_world_unload_bundle(world: *mut Void, bundle_uri: *const Void) -> i32;
-    fn lilv_world_load_resource(world: *mut Void, resource: *const Void) -> i32;
-    fn lilv_world_unload_resource(world: *mut Void, resource: *const Void) -> i32;
-    fn lilv_world_get_plugin_class(world: *mut Void) -> *const Void;
-    fn lilv_world_get_plugin_classes(world: *mut Void) -> *const Void;
-    fn lilv_world_get_all_plugins(world: *mut Void) -> *const Void;
-    fn lilv_world_find_nodes(
-        world: *mut Void,
-        subject: *const Void,
-        predicate: *const Void,
-        object: *const Void,
-    ) -> *mut Void;
-    fn lilv_world_get(
-        world: *mut Void,
-        subject: *const Void,
-        predicate: *const Void,
-        object: *const Void,
-    ) -> *mut Void;
-    fn lilv_world_ask(
-        world: *mut Void,
-        subject: *const Void,
-        predicate: *const Void,
-        object: *const Void,
-    ) -> u8;
-    fn lilv_world_get_symbol(world: *mut Void, subject: *const Void) -> *mut Void;
-    fn lilv_new_uri(world: *mut Void, uri: *const i8) -> *mut Void;
-    fn lilv_new_file_uri(world: *mut Void, host: *const i8, path: *const i8) -> *mut Void;
-    fn lilv_new_string(world: *mut Void, str: *const i8) -> *mut Void;
-    fn lilv_new_int(world: *mut Void, val: i32) -> *mut Void;
-    fn lilv_new_float(world: *mut Void, val: f32) -> *mut Void;
-    fn lilv_new_bool(world: *mut Void, val: u8) -> *mut Void;
-}
+pub struct World(pub(crate) RwLock<*mut LilvWorld>);
 
-pub struct World(pub(crate) RwLock<*mut Void>);
-
-pub(crate) fn new_node<'a>(world: &Rc<World>, node: *mut Void) -> Node<'a> {
+pub(crate) fn new_node<'a>(world: &Rc<World>, node: *mut LilvNode) -> Node<'a> {
     Node {
         node,
         world: world.clone(),
@@ -63,9 +21,9 @@ pub(crate) fn new_node<'a>(world: &Rc<World>, node: *mut Void) -> Node<'a> {
     }
 }
 
-pub(crate) fn ref_node<'a>(world: &Rc<World>, node: *const Void) -> Node<'a> {
+pub(crate) fn ref_node<'a>(world: &Rc<World>, node: *const LilvNode) -> Node<'a> {
     Node {
-        node: node as *mut Void,
+        node: node as *mut LilvNode,
         world: world.clone(),
         owned: false,
         _phantom: PhantomData,
@@ -183,16 +141,17 @@ impl WorldImpl for Rc<World> {
 
     fn get_plugin_class(&self) -> PluginClass {
         PluginClass {
-            plugin_class: unsafe {
-                lilv_world_get_plugin_class(*self.0.read().unwrap()) as *mut Void
-            },
+            plugin_class: unsafe { lilv_world_get_plugin_class(*self.0.read().unwrap()) }
+                as *mut LilvPluginClass,
             world: self.clone(),
         }
     }
 
     fn get_plugin_classes(&self) -> PluginClasses {
+        let plugin_classes: *const LilvPluginClasses =
+            unsafe { lilv_world_get_plugin_classes(*self.0.read().unwrap()) };
         PluginClasses {
-            plugin_classes: unsafe { lilv_world_get_plugin_classes(*self.0.read().unwrap()) },
+            plugin_classes,
             owned: false,
             world: self.clone(),
         }
@@ -259,7 +218,7 @@ impl WorldImpl for Rc<World> {
         let subject = subject.into().map_or(ptr::null(), |x| x.node);
         let predicate = predicate.into().map_or(ptr::null(), |x| x.node);
         let object = object.into().map_or(ptr::null(), |x| x.node);
-        unsafe { lilv_world_ask(*self.0.write().unwrap(), subject, predicate, object) != 0 }
+        unsafe { lilv_world_ask(*self.0.write().unwrap(), subject, predicate, object) }
     }
 
     fn get_symbol<'a>(&self, subject: &Node<'a>) -> Option<Node> {
@@ -308,7 +267,7 @@ impl WorldImpl for Rc<World> {
 
     fn new_bool(&self, value: bool) -> Node {
         new_node(self, unsafe {
-            lilv_new_bool(*self.0.write().unwrap(), if value { 1 } else { 0 })
+            lilv_new_bool(*self.0.write().unwrap(), value)
         })
     }
 }

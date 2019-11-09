@@ -1,115 +1,23 @@
 use crate::instance::Instance;
-use crate::instance::InstanceImpl;
 use crate::node::Node;
 use crate::plugin::Plugin;
 use crate::world::ref_node;
 use crate::world::World;
 use crate::Void;
+use lilv_sys::*;
 use lv2_raw::LV2Feature;
 use std::ffi::CStr;
 use std::ffi::CString;
 use std::rc::Rc;
 
-type LilvGetPortValueFunc = extern "C" fn(
-    port_symbol: *const i8,
-    user_data: *mut Void,
-    size: *mut u32,
-    tyep: *mut u32,
-) -> *const Void;
-
-type LilvSetPortValueFunc = extern "C" fn(
-    port_symbol: *const i8,
-    user_data: *mut Void,
-    value: *const Void,
-    size: u32,
-    tyep: u32,
-);
-
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_state_new_from_world(world: *mut Void, map: *mut Void, node: *const Void) -> *mut Void;
-    fn lilv_state_new_from_file(
-        world: *mut Void,
-        map: *mut Void,
-        subject: *const Void,
-        path: *const i8,
-    ) -> *mut Void;
-    fn lilv_state_new_from_string(world: *mut Void, map: *mut Void, str: *const i8) -> *mut Void;
-    fn lilv_state_new_from_instance(
-        plugin: *const Void,
-        instance: *mut InstanceImpl,
-        map: *mut Void,
-        scratch_dir: *const i8,
-        copy_dir: *const i8,
-        link_dir: *const i8,
-        save_dir: *const i8,
-        get_value: LilvGetPortValueFunc,
-        user_data: *mut Void,
-        flags: u32,
-        features: *const *const LV2Feature,
-    ) -> *mut Void;
-    fn lilv_state_free(state: *mut Void);
-    fn lilv_state_equals(a: *const Void, b: *const Void) -> u8;
-    fn lilv_state_get_num_properties(state: *const Void) -> u32;
-    fn lilv_state_get_plugin_uri(state: *const Void) -> *const Void;
-    fn lilv_state_get_uri(state: *const Void) -> *const Void;
-    fn lilv_state_get_label(state: *const Void) -> *const i8;
-    fn lilv_state_set_label(state: *mut Void, label: *const i8);
-    fn lilv_state_set_metadata(
-        state: *mut Void,
-        key: u32,
-        value: *const Void,
-        size: usize,
-        tyep: u32,
-        flags: u32,
-    ) -> i32;
-    fn lilv_state_emit_port_values(
-        state: *const Void,
-        set_value: LilvSetPortValueFunc,
-        user_data: *mut Void,
-    );
-    fn lilv_state_restore(
-        state: *const Void,
-        instance: *mut InstanceImpl,
-        set_value: LilvSetPortValueFunc,
-        user_data: *mut Void,
-        flags: u32,
-        features: *const *const LV2Feature,
-    );
-    fn lilv_state_save(
-        world: *mut Void,
-        map: *mut Void,
-        unmap: *mut Void,
-        state: *const Void,
-        uri: *const i8,
-        dir: *const i8,
-        filename: *const i8,
-    ) -> i32;
-    fn lilv_state_to_string(
-        world: *mut Void,
-        map: *mut Void,
-        unmap: *mut Void,
-        state: *const Void,
-        uri: *const i8,
-        base_uri: *const i8,
-    ) -> *mut i8;
-    fn lilv_state_delete(world: *mut Void, state: *const Void) -> i32;
-}
-
 struct WrapFn<F>(F);
-
-#[repr(C)]
-struct FakeLV2UridMap {
-    handle: *mut Void,
-    map: extern "C" fn(*mut Void, *const i8) -> u32,
-}
 
 extern "C" fn fake_map<F>(handle: *mut Void, uri: *const i8) -> u32
 where
     F: FnMut(&CStr) -> u32,
 {
     unsafe {
-        let f: &mut WrapFn<F> = std::mem::transmute(handle);
+        let f: &mut WrapFn<F> = &mut *(handle as *mut WrapFn<F>);
         f.0(CStr::from_ptr(uri))
     }
 }
@@ -125,7 +33,7 @@ where
     F: FnMut(u32) -> Option<&'a CStr>,
 {
     unsafe {
-        let f: &mut WrapFn<F> = std::mem::transmute(handle);
+        let f: &mut WrapFn<F> = &mut *(handle as *mut WrapFn<F>);
         Some(f.0(urid)?.as_ptr())
     }
 }
@@ -140,7 +48,7 @@ where
     F: FnMut(&CStr) -> PortValue,
 {
     unsafe {
-        let f: &mut WrapFn<F> = std::mem::transmute(user_data);
+        let f: &mut WrapFn<F> = &mut *(user_data as *mut WrapFn<F>);
         let ret = f.0(CStr::from_ptr(port_symbol));
 
         *size = ret.size;
@@ -159,7 +67,7 @@ extern "C" fn fake_set_port_value<F>(
     F: FnMut(&CStr, &PortValue),
 {
     unsafe {
-        let f: &mut WrapFn<F> = std::mem::transmute(user_data);
+        let f: &mut WrapFn<F> = &mut *(user_data as *mut WrapFn<F>);
         f.0(
             CStr::from_ptr(port_symbol),
             &PortValue { value, size, tyep },
@@ -174,7 +82,7 @@ pub struct PortValue {
 }
 
 pub struct State {
-    pub(crate) state: *mut Void,
+    pub(crate) state: *mut LilvState,
     pub(crate) world: Rc<World>,
     pub(crate) owned: bool,
 }
@@ -185,18 +93,14 @@ impl State {
         F: FnMut(&CStr) -> u32,
     {
         let mut wrap = WrapFn(map);
-        let mut fake = FakeLV2UridMap {
+        let mut fake = lv2_raw::LV2UridMap {
             handle: &mut wrap as *mut _ as *mut Void,
             map: fake_map::<F>,
         };
 
         State {
             state: unsafe {
-                lilv_state_new_from_world(
-                    *world.0.write().unwrap(),
-                    &mut fake as *mut _ as *mut Void,
-                    node.node,
-                )
+                lilv_state_new_from_world(*world.0.write().unwrap(), &mut fake, node.node)
             },
             world: world.clone(),
             owned: true,
@@ -208,7 +112,7 @@ impl State {
         Map: FnMut(&CStr) -> u32,
     {
         let mut wrap = WrapFn(map);
-        let mut fake = FakeLV2UridMap {
+        let mut fake = lv2_raw::LV2UridMap {
             handle: &mut wrap as *mut _ as *mut Void,
             map: fake_map::<Map>,
         };
@@ -217,7 +121,7 @@ impl State {
             state: unsafe {
                 lilv_state_new_from_file(
                     *world.0.write().unwrap(),
-                    &mut fake as *mut _ as *mut Void,
+                    &mut fake,
                     subject.node,
                     path.as_ptr(),
                 )
@@ -232,25 +136,21 @@ impl State {
         Map: FnMut(&CStr) -> u32,
     {
         let mut wrap = WrapFn(map);
-        let mut fake = FakeLV2UridMap {
+        let mut fake = lv2_raw::LV2UridMap {
             handle: &mut wrap as *mut _ as *mut Void,
             map: fake_map::<Map>,
         };
 
         State {
             state: unsafe {
-                lilv_state_new_from_string(
-                    *world.0.write().unwrap(),
-                    &mut fake as *mut _ as *mut Void,
-                    str.as_ptr(),
-                )
+                lilv_state_new_from_string(*world.0.write().unwrap(), &mut fake, str.as_ptr())
             },
             world: world.clone(),
             owned: true,
         }
     }
 
-    pub fn new_from_instance<'a, Map, GetValue, P3, P4, P5, P6>(
+    pub unsafe fn new_from_instance<'a, Map, GetValue, P3, P4, P5, P6>(
         plugin: &Plugin,
         instance: &mut Instance,
         map: Map,
@@ -280,27 +180,25 @@ impl State {
         let mut wrap_map = WrapFn(map);
         let mut wrap_get_value = WrapFn(get_value);
 
-        let mut fake_map = FakeLV2UridMap {
+        let mut fake_map = lv2_raw::LV2UridMap {
             handle: &mut wrap_map as *mut _ as *mut Void,
             map: fake_map::<Map>,
         };
 
         State {
-            state: unsafe {
-                lilv_state_new_from_instance(
-                    plugin.plugin,
-                    instance.0,
-                    &mut fake_map as *mut _ as *mut Void,
-                    scratch_dir.map_or_else(std::ptr::null, |x| x.as_ptr()),
-                    copy_dir.map_or_else(std::ptr::null, |x| x.as_ptr()),
-                    link_dir.map_or_else(std::ptr::null, |x| x.as_ptr()),
-                    save_dir.map_or_else(std::ptr::null, |x| x.as_ptr()),
-                    fake_get_port_value::<GetValue>,
-                    &mut wrap_get_value as *mut _ as *mut Void,
-                    flags,
-                    features,
-                )
-            },
+            state: lilv_state_new_from_instance(
+                plugin.plugin,
+                instance.0 as *mut LilvInstance,
+                &mut fake_map,
+                scratch_dir.map_or_else(std::ptr::null, |x| x.as_ptr()),
+                copy_dir.map_or_else(std::ptr::null, |x| x.as_ptr()),
+                link_dir.map_or_else(std::ptr::null, |x| x.as_ptr()),
+                save_dir.map_or_else(std::ptr::null, |x| x.as_ptr()),
+                Some(fake_get_port_value::<GetValue>),
+                &mut wrap_get_value as *mut _ as *mut Void,
+                flags,
+                features,
+            ),
             world: plugin.world.clone(),
             owned: true,
         }
@@ -333,7 +231,7 @@ impl State {
         unsafe { lilv_state_set_label(self.state, label.as_ptr()) }
     }
 
-    pub fn set_metadata(
+    pub unsafe fn set_metadata(
         &self,
         key: u32,
         value: *const libc::c_void,
@@ -341,7 +239,7 @@ impl State {
         tyep: u32,
         flags: u32,
     ) -> bool {
-        unsafe { lilv_state_set_metadata(self.state, key, value, size, tyep, flags) == 0 }
+        lilv_state_set_metadata(self.state, key, value, size, tyep, flags) == 0
     }
 
     pub fn emit_port_values<F>(&self, set_value: F)
@@ -352,13 +250,13 @@ impl State {
         unsafe {
             lilv_state_emit_port_values(
                 self.state,
-                fake_set_port_value::<F>,
+                Some(fake_set_port_value::<F>),
                 &mut wrap as *mut _ as *mut Void,
             )
         }
     }
 
-    pub fn restore<F>(
+    pub unsafe fn restore<F>(
         &self,
         instance: &mut Instance,
         set_value: F,
@@ -368,16 +266,14 @@ impl State {
         F: FnMut(&CStr, &PortValue),
     {
         let mut wrap = WrapFn(set_value);
-        unsafe {
-            lilv_state_restore(
-                self.state,
-                instance.0,
-                fake_set_port_value::<F>,
-                &mut wrap as *mut _ as *mut Void,
-                flags,
-                features,
-            )
-        }
+        lilv_state_restore(
+            self.state,
+            instance.0 as *mut LilvInstance,
+            Some(fake_set_port_value::<F>),
+            &mut wrap as *mut _ as *mut Void,
+            flags,
+            features,
+        )
     }
 
     pub fn save<'a, Map, Unmap>(
@@ -395,7 +291,7 @@ impl State {
         let mut wrap_map = WrapFn(map);
         let mut wrap_unmap = WrapFn(unmap);
 
-        let mut fake_map = FakeLV2UridMap {
+        let mut fake_map = lv2_raw::LV2UridMap {
             handle: &mut wrap_map as *mut _ as *mut Void,
             map: fake_map::<Map>,
         };
@@ -408,7 +304,7 @@ impl State {
         unsafe {
             lilv_state_save(
                 *self.world.0.write().unwrap(),
-                &mut fake_map as *mut _ as *mut Void,
+                &mut fake_map,
                 &mut fake_unmap as *mut _ as *mut Void,
                 self.state,
                 uri.map_or(std::ptr::null(), |x| x.as_ptr()),
@@ -432,7 +328,7 @@ impl State {
         let mut wrap_map = WrapFn(map);
         let mut wrap_unmap = WrapFn(unmap);
 
-        let mut fake_map = FakeLV2UridMap {
+        let mut fake_map = lv2_raw::LV2UridMap {
             handle: &mut wrap_map as *mut _ as *mut Void,
             map: fake_map::<Map>,
         };
@@ -445,7 +341,7 @@ impl State {
         unsafe {
             CString::from_raw(lilv_state_to_string(
                 *self.world.0.write().unwrap(),
-                &mut fake_map as *mut _ as *mut Void,
+                &mut fake_map,
                 &mut fake_unmap as *mut _ as *mut Void,
                 self.state,
                 uri.as_ptr(),
@@ -461,7 +357,7 @@ impl State {
 
 impl PartialEq for State {
     fn eq(&self, other: &Self) -> bool {
-        unsafe { lilv_state_equals(self.state, other.state) != 0 }
+        unsafe { lilv_state_equals(self.state, other.state) }
     }
 }
 

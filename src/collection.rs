@@ -4,11 +4,11 @@ use std::ptr;
 pub trait Collection<'a>: Sized + AsRef<*const Void> {
     type Target;
 
-    fn get(&self, i: *mut Void) -> Self::Target;
+    unsafe fn get(&self, i: *mut Void) -> Self::Target;
 }
 
 type BeginFn = unsafe extern "C" fn(*const Void) -> *mut Void;
-type IsEndFn = unsafe extern "C" fn(*const Void, *mut Void) -> u8;
+type IsEndFn = unsafe extern "C" fn(*const Void, *mut Void) -> bool;
 type NextFn = unsafe extern "C" fn(*const Void, *mut Void) -> *mut Void;
 
 pub struct Iter<'a, C>
@@ -44,13 +44,13 @@ where
     type Item = C::Target;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if unsafe { (self.is_end)(*self.collection.as_ref(), self.iter) != 0 } {
+        if unsafe { (self.is_end)(*self.collection.as_ref(), self.iter) } {
             return None;
         } else if self.iter.is_null() {
             self.iter = unsafe { (self.begin)(*self.collection.as_ref()) };
         } else {
             self.iter = unsafe { (self.next)(*self.collection.as_ref(), self.iter) };
         }
-        Some(self.collection.get(self.iter))
+        Some(unsafe { self.collection.get(self.iter) })
     }
 }

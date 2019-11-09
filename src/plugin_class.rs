@@ -2,19 +2,11 @@ use crate::node::Node;
 use crate::plugin_classes::PluginClasses;
 use crate::world::ref_node;
 use crate::world::World;
-use crate::Void;
+use lilv_sys::*;
 use std::rc::Rc;
 
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_plugin_class_get_parent_uri(plugin_class: *const Void) -> *const Void;
-    fn lilv_plugin_class_get_uri(plugin_class: *const Void) -> *const Void;
-    fn lilv_plugin_class_get_label(plugin_class: *const Void) -> *const Void;
-    fn lilv_plugin_class_get_children(plugin_class: *const Void) -> *mut Void;
-}
-
 pub struct PluginClass {
-    pub(crate) plugin_class: *mut Void,
+    pub(crate) plugin_class: *mut LilvPluginClass,
     pub(crate) world: Rc<World>,
 }
 

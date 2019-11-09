@@ -9,63 +9,18 @@ use crate::world::new_node;
 use crate::world::ref_node;
 use crate::world::World;
 use crate::Void;
+use lilv_sys::*;
 use std::ptr;
 use std::rc::Rc;
 
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_plugin_verify(plugin: *const Void) -> u8;
-    fn lilv_plugin_get_uri(plugin: *const Void) -> *const Void;
-    fn lilv_plugin_get_bundle_uri(plugin: *const Void) -> *const Void;
-    fn lilv_plugin_get_data_uris(plugin: *const Void) -> *const Void;
-    fn lilv_plugin_get_library_uri(plugin: *const Void) -> *const Void;
-    fn lilv_plugin_get_name(plugin: *const Void) -> *mut Void;
-    fn lilv_plugin_get_class(plugin: *const Void) -> *const Void;
-    fn lilv_plugin_get_value(plugin: *const Void, predicate: *const Void) -> *mut Void;
-    fn lilv_plugin_has_feature(plugin: *const Void, feature: *const Void) -> u8;
-    fn lilv_plugin_get_supported_features(plugin: *const Void) -> *mut Void;
-    fn lilv_plugin_get_required_features(plugin: *const Void) -> *mut Void;
-    fn lilv_plugin_get_optional_features(plugin: *const Void) -> *mut Void;
-    fn lilv_plugin_has_extension_data(plugin: *const Void, uri: *const Void) -> u8;
-    fn lilv_plugin_get_extension_data(plugin: *const Void) -> *mut Void;
-    fn lilv_plugin_get_num_ports(plugin: *const Void) -> u32;
-    fn lilv_plugin_get_port_ranges_float(
-        plugin: *const Void,
-        min_values: *mut f32,
-        max_values: *mut f32,
-        def_values: *mut f32,
-    );
-    fn lilv_plugin_has_latency(plugin: *const Void) -> u8;
-    fn lilv_plugin_get_latency_port_index(plugin: *const Void) -> u32;
-    fn lilv_plugin_get_port_by_index(plugin: *const Void, index: u32) -> *const Void;
-    fn lilv_plugin_get_port_by_symbol(plugin: *const Void, symbol: *const Void) -> *const Void;
-    fn lilv_plugin_get_port_by_designation(
-        plugin: *const Void,
-        port_class: *const Void,
-        designation: *const Void,
-    ) -> *const Void;
-    fn lilv_plugin_get_project(plugin: *const Void) -> *mut Void;
-    fn lilv_plugin_get_author_name(plugin: *const Void) -> *mut Void;
-    fn lilv_plugin_get_author_email(plugin: *const Void) -> *mut Void;
-    fn lilv_plugin_get_author_homepage(plugin: *const Void) -> *mut Void;
-    fn lilv_plugin_is_replaced(plugin: *const Void) -> u8;
-    fn lilv_plugin_get_related(plugin: *const Void, tyep: *const Void) -> *mut Void;
-    fn lilv_plugin_instantiate(
-        plugin: *const Void,
-        sample_rate: f64,
-        features: *const *const lv2_raw::LV2Feature,
-    ) -> *mut InstanceImpl;
-    fn lilv_plugin_get_uis(plugin: *const Void) -> *mut Void;
-}
-
 pub struct Plugin {
-    pub(crate) plugin: *const Void,
+    pub(crate) plugin: *const LilvPlugin,
     pub(crate) world: Rc<World>,
 }
 
 impl Plugin {
     pub fn verify(&self) -> bool {
-        unsafe { lilv_plugin_verify(self.plugin) != 0 }
+        unsafe { lilv_plugin_verify(self.plugin) }
     }
 
     pub fn get_uri(&self) -> Node {
@@ -98,7 +53,7 @@ impl Plugin {
 
     pub fn get_class(&self) -> PluginClass {
         PluginClass {
-            plugin_class: unsafe { lilv_plugin_get_class(self.plugin) as *mut Void },
+            plugin_class: unsafe { lilv_plugin_get_class(self.plugin) as *mut LilvPluginClass },
             world: self.world.clone(),
         }
     }
@@ -117,7 +72,7 @@ impl Plugin {
     }
 
     pub fn has_feature(&self, feature: &Node) -> bool {
-        unsafe { lilv_plugin_has_feature(self.plugin, feature.node) != 0 }
+        unsafe { lilv_plugin_has_feature(self.plugin, feature.node) }
     }
 
     pub fn get_supported_features(&self) -> Nodes {
@@ -145,7 +100,7 @@ impl Plugin {
     }
 
     pub fn has_extension_data(&self, uri: &Node) -> bool {
-        unsafe { lilv_plugin_has_extension_data(self.plugin, uri.node) != 0 }
+        unsafe { lilv_plugin_has_extension_data(self.plugin, uri.node) }
     }
 
     pub fn get_extension_data(&self) -> Nodes {
@@ -173,14 +128,14 @@ impl Plugin {
     }
 
     pub fn has_latency(&self) -> bool {
-        unsafe { lilv_plugin_has_latency(self.plugin) != 0 }
+        unsafe { lilv_plugin_has_latency(self.plugin) }
     }
 
     pub fn get_latency_port_index(&self) -> u32 {
         unsafe { lilv_plugin_get_latency_port_index(self.plugin) }
     }
 
-    pub fn get_port_by_index<'a>(&'a self, index: u32) -> Option<Port<'a>> {
+    pub fn get_port_by_index(&self, index: u32) -> Option<Port<'_>> {
         let ptr = unsafe { lilv_plugin_get_port_by_index(self.plugin, index) };
         if ptr.is_null() {
             None
@@ -263,10 +218,10 @@ impl Plugin {
     }
 
     pub fn is_replaced(&self) -> bool {
-        unsafe { lilv_plugin_is_replaced(self.plugin) != 0 }
+        unsafe { lilv_plugin_is_replaced(self.plugin) }
     }
 
-    pub fn get_related<'a, T>(&self, tyep: &Node) -> Nodes {
+    pub fn get_related<T>(&self, tyep: &Node) -> Nodes {
         Nodes {
             nodes: unsafe { lilv_plugin_get_related(self.plugin, tyep.node) },
             world: self.world.clone(),
@@ -319,7 +274,7 @@ impl Plugin {
         if ptr.is_null() {
             None
         } else {
-            Some(Instance(ptr))
+            Some(Instance(ptr as *mut InstanceImpl))
         }
     }
 

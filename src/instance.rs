@@ -1,66 +1,44 @@
-use crate::Void;
-use lv2_raw::LV2Feature;
+use lilv_sys::*;
+use lv2_raw::LV2Descriptor;
 use lv2_raw::LV2Handle;
 use std::ffi::CStr;
-use std::ptr;
 
 #[repr(C)]
-pub struct LV2Descriptor {
-    pub uri: *const libc::c_char,
-    pub instantiate: extern "C" fn(
-        descriptor: *const LV2Descriptor,
-        rate: f64,
-        bundle_path: *const libc::c_char,
-        features: *const (*const LV2Feature),
-    ) -> LV2Handle,
-    pub connect_port: extern "C" fn(handle: LV2Handle, port: u32, data: *mut libc::c_void),
-    pub activate: Option<extern "C" fn(instance: LV2Handle)>,
-    pub run: extern "C" fn(instance: LV2Handle, n_samples: u32),
-    pub deactivate: Option<extern "C" fn(instance: LV2Handle)>,
-    pub cleanup: extern "C" fn(instance: LV2Handle),
-    pub extension_data: Option<extern "C" fn(uri: *const libc::c_char) -> (*const libc::c_void)>,
-}
-
-#[repr(C)]
-pub(crate) struct InstanceImpl {
-    pub(crate) descriptor: *const LV2Descriptor,
-    pub(crate) handle: *mut Void,
-    pub(crate) private: *mut Void,
-}
+pub(crate) struct InstanceImpl(LilvInstance);
 
 impl InstanceImpl {
     #[inline(always)]
     pub unsafe fn get_uri(&self) -> *const libc::c_char {
-        (*self.descriptor).uri
+        (*self.0.lv2_descriptor).uri
     }
 
     #[inline(always)]
     pub unsafe fn connect_port(&mut self, port_index: u32, data_location: *mut libc::c_void) {
-        ((*self.descriptor).connect_port)(self.handle, port_index, data_location);
+        ((*self.0.lv2_descriptor).connect_port)(self.0.lv2_handle, port_index, data_location);
     }
 
     #[inline(always)]
     pub unsafe fn activate(&mut self) {
-        if let Some(activate) = (*self.descriptor).activate {
-            activate(self.handle)
+        if let Some(activate) = (*self.0.lv2_descriptor).activate {
+            activate(self.0.lv2_handle)
         }
     }
 
     #[inline(always)]
     pub unsafe fn run(&mut self, sample_count: u32) {
-        ((*self.descriptor).run)(self.handle, sample_count);
+        ((*self.0.lv2_descriptor).run)(self.0.lv2_handle, sample_count);
     }
 
     #[inline(always)]
     pub unsafe fn deactivate(&mut self) {
-        if let Some(deactivate) = (*self.descriptor).deactivate {
-            deactivate(self.handle)
+        if let Some(deactivate) = (*self.0.lv2_descriptor).deactivate {
+            deactivate(self.0.lv2_handle)
         }
     }
 
     #[inline(always)]
     pub unsafe fn get_descriptor(&self) -> *const LV2Descriptor {
-        self.descriptor
+        self.0.lv2_descriptor
     }
 }
 
@@ -97,9 +75,8 @@ impl Instance {
 
     #[inline(always)]
     pub unsafe fn get_extension_data(&self, uri: &CStr) -> *const libc::c_void {
-        self.get_descriptor()
-            .extension_data
-            .map_or(ptr::null_mut(), |f| f(uri.as_ptr()))
+        let f = self.get_descriptor().extension_data;
+        f(uri.as_ptr() as *const u8)
     }
 
     #[inline(always)]
@@ -109,7 +86,7 @@ impl Instance {
 
     #[inline(always)]
     pub unsafe fn get_handle(&self) -> LV2Handle {
-        (*self.0).handle
+        (*self.0).0.lv2_handle
     }
 }
 
@@ -117,7 +94,7 @@ impl Drop for Instance {
     fn drop(&mut self) {
         unsafe {
             let inner = &*self.0;
-            ((*inner.descriptor).cleanup)(inner.handle)
+            ((*inner.0.lv2_descriptor).cleanup)(inner.0.lv2_handle)
         };
     }
 }

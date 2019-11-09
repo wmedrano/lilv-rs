@@ -5,41 +5,11 @@ use crate::scale_points::ScalePoints;
 use crate::world::new_node;
 use crate::world::ref_node;
 use crate::Void;
+use lilv_sys::*;
 use std::ptr;
 
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_port_get_node(plugin: *const Void, port: *const Void) -> *const Void;
-    fn lilv_port_get_value(
-        plugin: *const Void,
-        port: *const Void,
-        predicate: *const Void,
-    ) -> *mut Void;
-    fn lilv_port_get(plugin: *const Void, port: *const Void, predicate: *const Void) -> *mut Void;
-    fn lilv_port_get_properties(plugin: *const Void, port: *const Void) -> *mut Void;
-    fn lilv_port_has_property(plugin: *const Void, port: *const Void, property: *const Void) -> u8;
-    fn lilv_port_supports_event(
-        plugin: *const Void,
-        port: *const Void,
-        event_type: *const Void,
-    ) -> u8;
-    fn lilv_port_get_index(plugin: *const Void, port: *const Void) -> u32;
-    fn lilv_port_get_symbol(plugin: *const Void, port: *const Void) -> *const Void;
-    fn lilv_port_get_name(plugin: *const Void, port: *const Void) -> *mut Void;
-    fn lilv_port_get_classes(plugin: *const Void, port: *const Void) -> *const Void;
-    fn lilv_port_is_a(plugin: *const Void, port: *const Void, port_class: *const Void) -> u8;
-    fn lilv_port_get_range(
-        plugin: *const Void,
-        port: *const Void,
-        def: *mut *mut Void,
-        min: *mut *mut Void,
-        max: *mut *mut Void,
-    );
-    fn lilv_port_get_scale_points(plugin: *const Void, port: *const Void) -> *mut Void;
-}
-
 pub struct Port<'a> {
-    pub(crate) port: *const Void,
+    pub(crate) port: *const LilvPort,
     pub(crate) plugin: &'a Plugin,
 }
 
@@ -81,11 +51,11 @@ impl<'a> Port<'a> {
     }
 
     pub fn has_property(&self, property: &Node) -> bool {
-        unsafe { lilv_port_has_property(self.plugin.plugin, self.port, property.node) != 0 }
+        unsafe { lilv_port_has_property(self.plugin.plugin, self.port, property.node) }
     }
 
     pub fn supports_event(&self, event_type: &Node) -> bool {
-        unsafe { lilv_port_supports_event(self.plugin.plugin, self.port, event_type.node) != 0 }
+        unsafe { lilv_port_supports_event(self.plugin.plugin, self.port, event_type.node) }
     }
 
     pub fn get_index(&self) -> u32 {
@@ -145,6 +115,6 @@ impl<'a> Port<'a> {
     }
 
     pub fn is_a(&'a self, port_class: &'a Node) -> bool {
-        unsafe { lilv_port_is_a((self.plugin).plugin, self.port, port_class.node) != 0 }
+        unsafe { lilv_port_is_a((self.plugin).plugin, self.port, port_class.node) }
     }
 }

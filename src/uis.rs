@@ -4,21 +4,11 @@ use crate::node::Node;
 use crate::ui::UI;
 use crate::world::World;
 use crate::Void;
+use lilv_sys::*;
 use std::rc::Rc;
 
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_uis_free(uis: *const Void);
-    fn lilv_uis_size(uis: *const Void) -> u32;
-    fn lilv_uis_begin(uis: *const Void) -> *mut Void;
-    fn lilv_uis_get(uis: *const Void, i: *mut Void) -> *const Void;
-    fn lilv_uis_next(uis: *const Void, i: *mut Void) -> *mut Void;
-    fn lilv_uis_is_end(uis: *const Void, i: *mut Void) -> u8;
-    fn lilv_uis_get_by_uri(uis: *const Void, uri: *const Void) -> *const Void;
-}
-
 pub struct UIs {
-    pub(crate) uis: *const Void,
+    pub(crate) uis: *const LilvUIs,
     pub(crate) owned: bool,
     pub(crate) world: Rc<World>,
 }
@@ -26,7 +16,7 @@ pub struct UIs {
 impl Drop for UIs {
     fn drop(&mut self) {
         if self.owned {
-            unsafe { lilv_uis_free(self.uis) }
+            unsafe { lilv_uis_free(self.uis as *mut LilvUIs) }
         }
     }
 }
@@ -43,9 +33,9 @@ where
 {
     type Target = UI;
 
-    fn get(&self, i: *mut Void) -> Self::Target {
+    unsafe fn get(&self, i: *mut Void) -> Self::Target {
         UI {
-            ui: unsafe { lilv_uis_get(self.uis, i) as *mut _ },
+            ui: lilv_uis_get(self.uis, i) as *mut _,
             world: self.world.clone(),
         }
     }
@@ -65,7 +55,7 @@ impl UIs {
         }
     }
 
-    pub fn iter<'a>(&'a self) -> Iter<'a, Self> {
+    pub fn iter(&self) -> Iter<'_, Self> {
         Iter::new(self, lilv_uis_begin, lilv_uis_is_end, lilv_uis_next)
     }
 

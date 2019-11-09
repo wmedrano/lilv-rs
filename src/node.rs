@@ -1,34 +1,12 @@
 use crate::world::new_node;
 use crate::world::World;
 use crate::Void;
+use lilv_sys::*;
 use std::ffi::CStr;
 use std::ffi::CString;
 use std::marker::PhantomData;
 use std::ptr;
 use std::rc::Rc;
-
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_node_duplicate(value: *const Void) -> *mut Void;
-    fn lilv_node_equals(value: *const Void, other: *const Void) -> u8;
-    fn lilv_node_get_turtle_token(value: *const Void) -> *mut i8;
-    fn lilv_node_is_uri(value: *const Void) -> u8;
-    fn lilv_node_as_uri(value: *const Void) -> *const i8;
-    fn lilv_node_is_blank(value: *const Void) -> u8;
-    fn lilv_node_as_blank(value: *const Void) -> *const i8;
-    fn lilv_node_is_literal(value: *const Void) -> u8;
-    fn lilv_node_is_string(value: *const Void) -> u8;
-    fn lilv_node_as_string(value: *const Void) -> *const i8;
-    fn lilv_node_get_path(value: *const Void, hostname: *mut *mut i8) -> *mut i8;
-    fn lilv_node_is_float(value: *const Void) -> u8;
-    fn lilv_node_as_float(value: *const Void) -> f32;
-    fn lilv_node_is_int(value: *const Void) -> u8;
-    fn lilv_node_as_int(value: *const Void) -> i32;
-    fn lilv_node_is_bool(value: *const Void) -> u8;
-    fn lilv_node_as_bool(value: *const Void) -> u8;
-    fn lilv_node_free(val: *mut Void);
-    fn lilv_free(val: *mut Void);
-}
 
 #[link(name = "serd-0")]
 extern "C" {
@@ -36,7 +14,7 @@ extern "C" {
 }
 
 pub struct Node<'a> {
-    pub(crate) node: *mut Void,
+    pub(crate) node: *mut LilvNode,
     pub(crate) world: Rc<World>,
     pub(crate) owned: bool,
     pub(crate) _phantom: PhantomData<(Value<'a>, fn() -> &'a ())>,
@@ -50,7 +28,7 @@ impl<'a> Clone for Node<'a> {
 
 impl<'a> PartialEq for Node<'a> {
     fn eq(&self, other: &Self) -> bool {
-        unsafe { lilv_node_equals(self.node, other.node) != 0 }
+        unsafe { lilv_node_equals(self.node, other.node) }
     }
 }
 
@@ -159,18 +137,18 @@ impl<'a> Node<'a> {
 
     pub fn value(&self) -> Value<'a> {
         unsafe {
-            if lilv_node_is_uri(self.node) != 0 {
+            if lilv_node_is_uri(self.node) {
                 Value::Uri(CStr::from_ptr(lilv_node_as_uri(self.node)))
-            } else if lilv_node_is_blank(self.node) != 0 {
+            } else if lilv_node_is_blank(self.node) {
                 Value::Blank(CStr::from_ptr(lilv_node_as_blank(self.node)))
-            } else if lilv_node_is_string(self.node) != 0 {
+            } else if lilv_node_is_string(self.node) {
                 Value::String(CStr::from_ptr(lilv_node_as_string(self.node)))
-            } else if lilv_node_is_float(self.node) != 0 {
+            } else if lilv_node_is_float(self.node) {
                 Value::Float(lilv_node_as_float(self.node))
-            } else if lilv_node_is_int(self.node) != 0 {
+            } else if lilv_node_is_int(self.node) {
                 Value::Int(lilv_node_as_int(self.node))
-            } else if lilv_node_is_bool(self.node) != 0 {
-                Value::Bool(lilv_node_as_bool(self.node) != 0)
+            } else if lilv_node_is_bool(self.node) {
+                Value::Bool(lilv_node_as_bool(self.node))
             } else {
                 unreachable!()
             }
@@ -178,31 +156,31 @@ impl<'a> Node<'a> {
     }
 
     pub fn is_uri(&self) -> bool {
-        unsafe { lilv_node_is_uri(self.node) != 0 }
+        unsafe { lilv_node_is_uri(self.node) }
     }
 
     pub fn is_blank(&self) -> bool {
-        unsafe { lilv_node_is_blank(self.node) != 0 }
+        unsafe { lilv_node_is_blank(self.node) }
     }
 
     pub fn is_string(&self) -> bool {
-        unsafe { lilv_node_is_string(self.node) != 0 }
+        unsafe { lilv_node_is_string(self.node) }
     }
 
     pub fn is_float(&self) -> bool {
-        unsafe { lilv_node_is_float(self.node) != 0 }
+        unsafe { lilv_node_is_float(self.node) }
     }
 
     pub fn is_int(&self) -> bool {
-        unsafe { lilv_node_is_int(self.node) != 0 }
+        unsafe { lilv_node_is_int(self.node) }
     }
 
     pub fn is_bool(&self) -> bool {
-        unsafe { lilv_node_is_bool(self.node) != 0 }
+        unsafe { lilv_node_is_bool(self.node) }
     }
 
     pub fn is_literal(&self) -> bool {
-        unsafe { lilv_node_is_literal(self.node) != 0 }
+        unsafe { lilv_node_is_literal(self.node) }
     }
 
     pub fn get_path(&self, with_hostname: bool) -> Option<(CString, Option<CString>)> {

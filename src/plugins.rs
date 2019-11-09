@@ -4,17 +4,8 @@ use crate::node::Node;
 use crate::plugin::Plugin;
 use crate::world::World;
 use crate::Void;
+use lilv_sys::*;
 use std::rc::Rc;
-
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_plugins_get_by_uri(plugins: *const Void, uri: *const Void) -> *const Void;
-    fn lilv_plugins_get(plugins: *const Void, i: *mut Void) -> *const Void;
-    fn lilv_plugins_begin(plugins: *const Void) -> *mut Void;
-    fn lilv_plugins_is_end(plugins: *const Void, i: *mut Void) -> u8;
-    fn lilv_plugins_next(plugins: *const Void, i: *mut Void) -> *mut Void;
-    fn lilv_plugins_size(plugins: *const Void) -> u32;
-}
 
 pub struct Plugins {
     pub(crate) plugins: *const Void,
@@ -33,9 +24,9 @@ where
 {
     type Target = Plugin;
 
-    fn get(&self, i: *mut Void) -> Self::Target {
+    unsafe fn get(&self, i: *mut Void) -> Self::Target {
         Plugin {
-            plugin: unsafe { lilv_plugins_get(self.plugins, i) },
+            plugin: lilv_plugins_get(self.plugins, i),
             world: self.world.clone(),
         }
     }
@@ -57,7 +48,7 @@ impl Plugins {
         }
     }
 
-    pub fn iter<'a>(&'a self) -> Iter<'a, Self> {
+    pub fn iter(&self) -> Iter<'_, Self> {
         Iter::new(
             self,
             lilv_plugins_begin,

@@ -1,17 +1,11 @@
 use crate::node::Node;
 use crate::world::ref_node;
 use crate::world::World;
-use crate::Void;
+use lilv_sys::*;
 use std::rc::Rc;
 
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_scale_point_get_label(point: *const Void) -> *const Void;
-    fn lilv_scale_point_get_value(point: *const Void) -> *const Void;
-}
-
 pub struct ScalePoint {
-    pub(crate) point: *const Void,
+    pub(crate) point: *const LilvScalePoint,
     pub(crate) world: Rc<World>,
 }
 

@@ -3,27 +3,19 @@ use crate::collection::Iter;
 use crate::scale_point::ScalePoint;
 use crate::world::World;
 use crate::Void;
+use lilv_sys::*;
 use std::rc::Rc;
 
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_scale_points_free(scale_points: *mut Void);
-    fn lilv_scale_points_size(scale_points: *const Void) -> u32;
-    fn lilv_scale_points_begin(scale_points: *const Void) -> *mut Void;
-    fn lilv_scale_points_get(scale_points: *const Void, i: *mut Void) -> *const Void;
-    fn lilv_scale_points_next(scale_points: *const Void, i: *mut Void) -> *mut Void;
-    fn lilv_scale_points_is_end(scale_points: *const Void, i: *mut Void) -> u8;
-}
-
 pub struct ScalePoints {
-    pub(crate) scale_points: *const Void,
+    pub(crate) scale_points: *const LilvScalePoints,
     pub(crate) owned: bool,
     pub(crate) world: Rc<World>,
 }
 
 impl AsRef<*const Void> for ScalePoints {
     fn as_ref(&self) -> &*const Void {
-        &self.scale_points
+        let ptr: &*const LilvScalePoints = &self.scale_points;
+        unsafe { std::mem::transmute(ptr) }
     }
 }
 
@@ -33,16 +25,16 @@ where
 {
     type Target = ScalePoint;
 
-    fn get(&self, i: *mut Void) -> Self::Target {
+    unsafe fn get(&self, i: *mut Void) -> Self::Target {
         ScalePoint {
-            point: unsafe { lilv_scale_points_get(self.scale_points, i) } as *mut Void,
+            point: lilv_scale_points_get(self.scale_points, i),
             world: self.world.clone(),
         }
     }
 }
 
 impl ScalePoints {
-    pub fn iter<'a>(&'a self) -> Iter<'a, Self> {
+    pub fn iter(&self) -> Iter<'_, Self> {
         Iter::new(
             self,
             lilv_scale_points_begin,

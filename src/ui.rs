@@ -3,30 +3,14 @@ use crate::nodes::Nodes;
 use crate::world::ref_node;
 use crate::world::World;
 use crate::Void;
+use lilv_sys::*;
 use std::ffi::CStr;
 use std::ops::Deref;
 use std::ptr;
 use std::rc::Rc;
 
-type UISupportedFunc = unsafe extern "C" fn(*const i8, *const i8) -> u32;
-
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_ui_get_uri(ui: *const Void) -> *const Void;
-    fn lilv_ui_get_classes(ui: *const Void) -> *const Void;
-    fn lilv_ui_is_a(ui: *const Void, class_uri: *const Void) -> u8;
-    fn lilv_ui_is_supported(
-        ui: *const Void,
-        supported_func: UISupportedFunc,
-        container_type: *const Void,
-        ui_type: *mut *const Void,
-    ) -> u32;
-    fn lilv_ui_get_bundle_uri(ui: *const Void) -> *const Void;
-    fn lilv_ui_get_binary_uri(ui: *const Void) -> *const Void;
-}
-
 pub struct UI {
-    pub(crate) ui: *mut Void,
+    pub(crate) ui: *mut LilvUI,
     pub(crate) world: Rc<World>,
 }
 
@@ -44,7 +28,7 @@ impl UI {
     }
 
     pub fn is_a(&self, class_uri: &Node) -> bool {
-        unsafe { lilv_ui_is_a(self.ui, class_uri.node) != 0 }
+        unsafe { lilv_ui_is_a(self.ui, class_uri.node) }
     }
 
     pub fn is_supported<'a, 'b, S>(&'a self, container_type: &Node) -> (UISupportQuality, Node)
@@ -52,11 +36,11 @@ impl UI {
         S: UISupport,
         'a: 'b,
     {
-        let mut ui_type: *const Void = ptr::null_mut();
+        let mut ui_type: *const LilvNode = ptr::null_mut();
         let quality = UISupportQuality(unsafe {
             lilv_ui_is_supported(
                 self.ui,
-                supported_func::<S>,
+                Some(supported_func::<S>),
                 container_type.node,
                 &mut ui_type,
             )

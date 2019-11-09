@@ -6,4 +6,5 @@ edition = "2018"
 
 [dependencies]
 libc = "0.2"
+lilv-sys = "0.2"
 lv2_raw = "0.2"

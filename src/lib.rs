@@ -42,56 +42,46 @@ pub use crate::world::*;
 pub use lv2_raw::LV2Descriptor;
 pub use lv2_raw::LV2Feature;
 
-use std::ffi::CStr;
-use std::ffi::CString;
-use std::ptr;
-
 type Void = libc::c_void;
 
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_free(value: *mut Void);
-    fn lilv_file_uri_parse(uri: *const i8, hostname: *mut *mut i8) -> *mut i8;
-}
+// #[link(name = "serd-0")]
+// extern "C" {
+//     fn serd_free(value: *mut Void);
+// }
 
-#[link(name = "serd-0")]
-extern "C" {
-    fn serd_free(value: *mut Void);
-}
+// pub fn file_uri_parse(uri: &CStr, with_hostname: bool) -> Option<(CString, Option<CString>)> {
+//     let mut hostname = ptr::null_mut();
 
-pub fn file_uri_parse(uri: &CStr, with_hostname: bool) -> Option<(CString, Option<CString>)> {
-    let mut hostname = ptr::null_mut();
+//     let path = unsafe {
+//         lilv_file_uri_parse(
+//             uri.as_ptr(),
+//             if with_hostname {
+//                 &mut hostname
+//             } else {
+//                 ptr::null_mut()
+//             },
+//         )
+//     };
 
-    let path = unsafe {
-        lilv_file_uri_parse(
-            uri.as_ptr(),
-            if with_hostname {
-                &mut hostname
-            } else {
-                ptr::null_mut()
-            },
-        )
-    };
+//     if path.is_null() {
+//         None
+//     } else {
+//         unsafe {
+//             let ret_path = CString::from(CStr::from_ptr(path));
+//             lilv_free(path as *mut Void);
 
-    if path.is_null() {
-        None
-    } else {
-        unsafe {
-            let ret_path = CString::from(CStr::from_ptr(path));
-            lilv_free(path as *mut Void);
+//             let ret_hostname = if with_hostname & !hostname.is_null() {
+//                 let ret_hostname = CString::from(CStr::from_ptr(hostname));
+//                 serd_free(hostname as *mut Void);
+//                 Some(ret_hostname)
+//             } else {
+//                 None
+//             };
 
-            let ret_hostname = if with_hostname & !hostname.is_null() {
-                let ret_hostname = CString::from(CStr::from_ptr(hostname));
-                serd_free(hostname as *mut Void);
-                Some(ret_hostname)
-            } else {
-                None
-            };
-
-            Some((ret_path, ret_hostname))
-        }
-    }
-}
+//             Some((ret_path, ret_hostname))
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
