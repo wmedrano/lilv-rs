@@ -11,10 +11,7 @@ type BeginFn = unsafe extern "C" fn(*const Void) -> *mut Void;
 type IsEndFn = unsafe extern "C" fn(*const Void, *mut Void) -> bool;
 type NextFn = unsafe extern "C" fn(*const Void, *mut Void) -> *mut Void;
 
-pub struct Iter<'a, C>
-where
-    C: Collection<'a>,
-{
+pub struct Iter<'a, C> {
     iter: *mut Void,
     collection: &'a C,
     begin: BeginFn,

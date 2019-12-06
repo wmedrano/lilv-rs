@@ -13,11 +13,13 @@ extern "C" {
     fn serd_free(val: *mut Void);
 }
 
+type Phantom<'a> = PhantomData<(Value<'a>, fn() -> &'a ())>;
+
 pub struct Node<'a> {
     pub(crate) node: *mut LilvNode,
     pub(crate) world: Rc<World>,
     pub(crate) owned: bool,
-    pub(crate) _phantom: PhantomData<(Value<'a>, fn() -> &'a ())>,
+    pub(crate) _phantom: Phantom<'a>,
 }
 
 impl<'a> Clone for Node<'a> {
@@ -128,7 +130,7 @@ impl<'a> Value<'a> {
 impl<'a> Node<'a> {
     pub fn turtle_token(&self) -> CString {
         unsafe {
-            let token = lilv_node_turtle_token(self.node);
+            let token = lilv_node_get_turtle_token(self.node);
             let ret = CString::from(CStr::from_ptr(token));
             lilv_free(token as *mut Void);
             ret
@@ -183,7 +185,7 @@ impl<'a> Node<'a> {
         unsafe { lilv_node_is_literal(self.node) }
     }
 
-    pub fn get_path(&self, with_hostname: bool) -> Option<(CString, Option<CString>)> {
+    pub fn path(&self, with_hostname: bool) -> Option<(CString, Option<CString>)> {
         if !self.is_uri() {
             return None;
         }
