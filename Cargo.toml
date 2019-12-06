@@ -1,7 +1,7 @@
 [package]
 name = "lilv"
 version = "0.0.0"
-authors = ["Henna Haahti <grejppi@gmail.com>"]
+authors = ["Will Medrano <will.s.medrano@gmail.com>", "Henna Haahti <grejppi@gmail.com>"]
 edition = "2018"
 
 [dependencies]
