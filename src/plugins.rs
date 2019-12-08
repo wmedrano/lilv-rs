@@ -5,8 +5,8 @@ use lilv_sys::*;
 use std::rc::Rc;
 
 pub struct Plugins {
-    world: Rc<World>,
-    plugins: *const LilvPlugins,
+    pub(crate) world: Rc<World>,
+    pub(crate) plugins: *const LilvPlugins,
 }
 
 impl Plugins {
