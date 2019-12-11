@@ -1,5 +1,3 @@
-use crate::collection::Collection;
-use crate::collection::Iter;
 use crate::scale_point::ScalePoint;
 use crate::world::World;
 use crate::Void;
@@ -12,39 +10,20 @@ pub struct ScalePoints {
     pub(crate) world: Rc<World>,
 }
 
-impl AsRef<*const Void> for ScalePoints {
-    fn as_ref(&self) -> &*const Void {
-        let ptr: &*const LilvScalePoints = &self.scale_points;
-        unsafe { std::mem::transmute(ptr) }
-    }
-}
-
-impl<'a> Collection<'a> for ScalePoints
-where
-    Self: 'a,
-{
-    type Target = ScalePoint;
-
-    unsafe fn get(&self, i: *mut Void) -> Self::Target {
-        ScalePoint {
-            point: lilv_scale_points_get(self.scale_points, i),
-            world: self.world.clone(),
+impl ScalePoints {
+    pub fn iter(&self) -> ScalePointIter<'_> {
+        ScalePointIter {
+            scale_points: self,
+            iter: unsafe { lilv_scale_points_begin(self.scale_points) },
         }
     }
-}
 
-impl ScalePoints {
-    pub fn iter(&self) -> Iter<'_, Self> {
-        Iter::new(
-            self,
-            lilv_scale_points_begin,
-            lilv_scale_points_is_end,
-            lilv_scale_points_next,
-        )
+    pub fn len(&self) -> usize {
+        unsafe { lilv_scale_points_size(self.scale_points) as usize }
     }
 
-    pub fn size(&self) -> usize {
-        unsafe { lilv_scale_points_size(self.scale_points) as usize }
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
@@ -52,6 +31,29 @@ impl Drop for ScalePoints {
     fn drop(&mut self) {
         if self.owned {
             unsafe { lilv_scale_points_free(self.scale_points as *mut Void) }
+        }
+    }
+}
+
+pub struct ScalePointIter<'a> {
+    scale_points: &'a ScalePoints,
+    iter: *mut LilvIter,
+}
+
+impl<'a> Iterator for ScalePointIter<'a> {
+    type Item = ScalePoint;
+
+    fn next(&mut self) -> Option<ScalePoint> {
+        let ptr = unsafe { lilv_scale_points_get(self.scale_points.scale_points, self.iter) };
+        if ptr.is_null() {
+            None
+        } else {
+            self.iter =
+                unsafe { lilv_scale_points_next(self.scale_points.scale_points, self.iter) };
+            Some(ScalePoint {
+                point: ptr,
+                world: self.scale_points.world.clone(),
+            })
         }
     }
 }
