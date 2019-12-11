@@ -1,5 +1,3 @@
-use crate::collection::Collection;
-use crate::collection::Iter;
 use crate::node::Node;
 use crate::world::World;
 use crate::Void;
@@ -21,30 +19,6 @@ impl Drop for Nodes {
     }
 }
 
-impl AsRef<*const Void> for Nodes {
-    fn as_ref(&self) -> &*const Void {
-        unsafe {
-            &*(&self.nodes as *const *mut core::ffi::c_void as *const *const core::ffi::c_void)
-        }
-    }
-}
-
-impl<'a> Collection<'a> for Nodes
-where
-    Self: 'a,
-{
-    type Target = Node<'a>;
-
-    unsafe fn get(&self, i: *mut Void) -> Self::Target {
-        Node {
-            node: lilv_nodes_get(self.nodes, i) as *mut LilvNodeImpl,
-            world: self.world.clone(),
-            owned: false,
-            _phantom: PhantomData,
-        }
-    }
-}
-
 impl Nodes {
     pub fn contains(&self, value: &Node) -> bool {
         unsafe { lilv_nodes_contains(self.nodes, value.node) }
@@ -58,11 +32,42 @@ impl Nodes {
         }
     }
 
-    pub fn iter(&self) -> Iter<'_, Self> {
-        Iter::new(self, lilv_nodes_begin, lilv_nodes_is_end, lilv_nodes_next)
+    pub fn iter(&self) -> NodesIter<'_> {
+        NodesIter {
+            nodes: self,
+            iter: unsafe { lilv_nodes_begin(self.nodes) },
+        }
     }
 
-    pub fn size(&self) -> usize {
+    pub fn len(&self) -> usize {
         unsafe { lilv_nodes_size(self.nodes) as usize }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+pub struct NodesIter<'a> {
+    nodes: &'a Nodes,
+    iter: *mut LilvIter,
+}
+
+impl<'a> Iterator for NodesIter<'a> {
+    type Item = Node<'a>;
+
+    fn next(&mut self) -> Option<Node<'a>> {
+        let ptr = unsafe { lilv_nodes_get(self.nodes.nodes, self.iter) };
+        if ptr.is_null() {
+            None
+        } else {
+            self.iter = unsafe { lilv_nodes_next(self.nodes.nodes, self.iter) };
+            Some(Node {
+                node: ptr as *mut LilvNode,
+                world: self.nodes.world.clone(),
+                owned: false,
+                _phantom: PhantomData,
+            })
+        }
     }
 }
