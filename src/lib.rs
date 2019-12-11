@@ -7,7 +7,6 @@
 //! [`http://lv2plug.in`]: http://lv2plug.in
 //! [`http://drobilla.net/software/lilv`]: http://drobilla.net/software/lilv
 
-mod collection;
 mod instance;
 mod node;
 mod nodes;
@@ -23,7 +22,6 @@ mod ui;
 mod uis;
 mod world;
 
-pub use crate::collection::*;
 pub use crate::instance::*;
 pub use crate::node::*;
 pub use crate::nodes::*;

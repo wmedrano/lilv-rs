@@ -1,9 +1,6 @@
-use crate::collection::Collection;
-use crate::collection::Iter;
 use crate::node::Node;
 use crate::ui::UI;
 use crate::world::World;
-use crate::Void;
 use lilv_sys::*;
 use std::rc::Rc;
 
@@ -17,26 +14,6 @@ impl Drop for UIs {
     fn drop(&mut self) {
         if self.owned {
             unsafe { lilv_uis_free(self.uis as *mut LilvUIs) }
-        }
-    }
-}
-
-impl AsRef<*const Void> for UIs {
-    fn as_ref(&self) -> &*const Void {
-        &self.uis
-    }
-}
-
-impl<'a> Collection<'a> for UIs
-where
-    Self: 'a,
-{
-    type Target = UI;
-
-    unsafe fn get(&self, i: *mut Void) -> Self::Target {
-        UI {
-            ui: lilv_uis_get(self.uis, i) as *mut _,
-            world: self.world.clone(),
         }
     }
 }
@@ -55,11 +32,36 @@ impl UIs {
         }
     }
 
-    pub fn iter(&self) -> Iter<'_, Self> {
-        Iter::new(self, lilv_uis_begin, lilv_uis_is_end, lilv_uis_next)
+    pub fn iter(&self) -> UiIter<'_> {
+        UiIter {
+            uis: self,
+            iter: unsafe { lilv_uis_begin(self.uis) },
+        }
     }
 
     pub fn size(&self) -> usize {
         unsafe { lilv_uis_size(self.uis) as usize }
+    }
+}
+
+pub struct UiIter<'a> {
+    uis: &'a UIs,
+    iter: *mut LilvIter,
+}
+
+impl<'a> Iterator for UiIter<'a> {
+    type Item = UI;
+
+    fn next(&mut self) -> Option<UI> {
+        let ptr = unsafe { lilv_uis_get(self.uis.uis, self.iter) };
+        if ptr.is_null() {
+            None
+        } else {
+            self.iter = unsafe { lilv_uis_next(self.uis.uis, self.iter) };
+            Some(UI {
+                ui: ptr as *mut LilvUI,
+                world: self.uis.world.clone(),
+            })
+        }
     }
 }
