@@ -1,91 +1,108 @@
 use crate::node::Node;
 use crate::nodes::Nodes;
-use crate::world::ref_node;
-use crate::world::World;
-use crate::Void;
+use crate::plugin::Plugin;
+use lilv_sys as lib;
+use parking_lot::RwLock;
 use std::ffi::CStr;
-use std::ops::Deref;
-use std::ptr;
-use std::rc::Rc;
+use std::ptr::NonNull;
 
-type UISupportedFunc = unsafe extern "C" fn(*const i8, *const i8) -> u32;
-
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_ui_get_uri(ui: *const Void) -> *const Void;
-    fn lilv_ui_get_classes(ui: *const Void) -> *const Void;
-    fn lilv_ui_is_a(ui: *const Void, class_uri: *const Void) -> u8;
-    fn lilv_ui_is_supported(
-        ui: *const Void,
-        supported_func: UISupportedFunc,
-        container_type: *const Void,
-        ui_type: *mut *const Void,
-    ) -> u32;
-    fn lilv_ui_get_bundle_uri(ui: *const Void) -> *const Void;
-    fn lilv_ui_get_binary_uri(ui: *const Void) -> *const Void;
+pub struct UI<'a> {
+    pub(crate) inner: RwLock<NonNull<lib::LilvUI>>,
+    pub(crate) plugin: &'a Plugin,
 }
 
-pub struct UI {
-    pub(crate) ui: *mut Void,
-    pub(crate) world: Rc<World>,
-}
-
-impl UI {
-    pub fn get_uri(&self) -> Node {
-        ref_node(&self.world, unsafe { lilv_ui_get_uri(self.ui) })
-    }
-
-    pub fn get_classes(&self) -> Nodes {
-        Nodes {
-            nodes: unsafe { lilv_ui_get_classes(self.ui) as *mut Void },
-            world: self.world.clone(),
-            owned: false,
+impl<'a> UI<'a> {
+    pub(crate) fn new_borrowed(ptr: NonNull<lib::LilvUI>, plugin: &'a Plugin) -> Self {
+        Self {
+            inner: RwLock::new(ptr),
+            plugin,
         }
     }
 
-    pub fn is_a(&self, class_uri: &Node) -> bool {
-        unsafe { lilv_ui_is_a(self.ui, class_uri.node) != 0 }
+    pub fn uri(&self) -> Node {
+        let ui = self.inner.read().as_ptr();
+
+        Node::new_borrowed(
+            NonNull::new(unsafe { lib::lilv_ui_get_uri(ui) as _ }).unwrap(),
+            self.plugin.world.clone(),
+        )
     }
 
-    pub fn is_supported<'a, 'b, S>(&'a self, container_type: &Node) -> (UISupportQuality, Node)
+    pub fn classes(&self) -> Nodes {
+        let ui = self.inner.read().as_ptr();
+
+        Nodes::new_borrowed(
+            NonNull::new(unsafe { lib::lilv_ui_get_classes(ui) as _ }).unwrap(),
+            self.plugin.world.clone(),
+        )
+    }
+
+    pub fn is_a(&self, class_uri: &Node) -> bool {
+        let ui = self.inner.read().as_ptr();
+        let class_uri = class_uri.inner.read().as_ptr();
+
+        unsafe { lib::lilv_ui_is_a(ui, class_uri) }
+    }
+
+    pub fn is_supported<S>(
+        &self,
+        container_type: &Node,
+        ui_type: Option<&mut Option<Node>>,
+    ) -> UISupportQuality
     where
         S: UISupport,
-        'a: 'b,
     {
-        let mut ui_type: *const Void = ptr::null_mut();
+        let ui = self.inner.read().as_ptr();
+        let container_type = container_type.inner.read().as_ptr();
+
+        let mut ui_type_ptr = std::ptr::null();
+
         let quality = UISupportQuality(unsafe {
-            lilv_ui_is_supported(
-                self.ui,
-                supported_func::<S>,
-                container_type.node,
-                &mut ui_type,
+            lib::lilv_ui_is_supported(
+                ui,
+                Some(supported_func::<S>),
+                container_type,
+                ui_type
+                    .as_ref()
+                    .map(|_| &mut ui_type_ptr as _)
+                    .unwrap_or(std::ptr::null_mut()),
             )
         });
-        (quality, ref_node(&self.world, ui_type))
+
+        if let Some(ui_type) = ui_type {
+            *ui_type = Some(Node::new_borrowed(
+                NonNull::new(ui_type_ptr as _).unwrap(),
+                self.plugin.world.clone(),
+            ));
+        }
+
+        quality
     }
 
-    pub fn get_bundle_uri(&self) -> Node {
-        ref_node(&self.world, unsafe { lilv_ui_get_bundle_uri(self.ui) })
+    pub fn bundle_uri(&self) -> Node {
+        let ui = self.inner.read().as_ptr();
+
+        Node::new_borrowed(
+            NonNull::new(unsafe { lib::lilv_ui_get_bundle_uri(ui) as _ }).unwrap(),
+            self.plugin.world.clone(),
+        )
     }
 
-    pub fn get_binary_uri(&self) -> Node {
-        ref_node(&self.world, unsafe { lilv_ui_get_binary_uri(self.ui) })
+    pub fn binary_uri(&self) -> Node {
+        let ui = self.inner.read().as_ptr();
+
+        Node::new_borrowed(
+            NonNull::new(unsafe { lib::lilv_ui_get_binary_uri(ui) as _ }).unwrap(),
+            self.plugin.world.clone(),
+        )
     }
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct UISupportQuality(pub u32);
 
-impl Deref for UISupportQuality {
-    type Target = u32;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 pub trait UISupport {
-    fn supported(container: &CStr, ui: &CStr) -> UISupportQuality;
+    fn supported(container: &str, ui: &str) -> UISupportQuality;
 }
 
 unsafe extern "C" fn supported_func<S: UISupport>(
@@ -93,8 +110,8 @@ unsafe extern "C" fn supported_func<S: UISupport>(
     ui_type_uri: *const i8,
 ) -> u32 {
     S::supported(
-        &CStr::from_ptr(container_type_uri),
-        &CStr::from_ptr(ui_type_uri),
+        &CStr::from_ptr(container_type_uri).to_str().unwrap(),
+        &CStr::from_ptr(ui_type_uri).to_str().unwrap(),
     )
     .0
 }

@@ -1,9 +1,14 @@
 [package]
 name = "lilv"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["Henna Haahti <grejppi@gmail.com>"]
 edition = "2018"
+build = "build.rs"
 
 [dependencies]
-libc = "0.2"
+lilv-sys = "0.2"
 lv2_raw = "0.2"
+parking_lot = "0.10"
+
+[build-dependencies]
+pkg-config = "0.3"

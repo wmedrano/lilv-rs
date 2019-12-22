@@ -1,81 +1,63 @@
-use crate::collection::Collection;
-use crate::collection::Iter;
+use crate::collection::*;
 use crate::node::Node;
 use crate::plugin_class::PluginClass;
-use crate::world::World;
-use crate::Void;
-use std::rc::Rc;
+use crate::world::InnerWorld;
+use lilv_sys as lib;
+use std::ptr::NonNull;
+use std::sync::Arc;
 
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_plugin_classes_free(plugin_classes: *mut Void);
-    fn lilv_plugin_classes_size(plugin_classes: *const Void) -> u32;
-    fn lilv_plugin_classes_get(plugin_classes: *const Void, i: *mut Void) -> *const Void;
-    fn lilv_plugin_classes_begin(plugin_classes: *const Void) -> *mut Void;
-    fn lilv_plugin_classes_next(plugin_classes: *const Void, i: *mut Void) -> *mut Void;
-    fn lilv_plugin_classes_is_end(plugin_classes: *const Void, i: *mut Void) -> u8;
-    fn lilv_plugin_classes_get_by_uri(plugin_classes: *const Void, uri: *const Void)
-        -> *const Void;
-}
-
-pub struct PluginClasses {
-    pub(crate) plugin_classes: *const Void,
-    pub(crate) owned: bool,
-    pub(crate) world: Rc<World>,
-}
-
-impl AsRef<*const Void> for PluginClasses {
-    fn as_ref(&self) -> &*const Void {
-        &self.plugin_classes
-    }
-}
-
-impl<'a> Collection<'a> for PluginClasses
-where
-    Self: 'a,
-{
-    type Target = PluginClass;
-
-    fn get(&self, i: *mut Void) -> Self::Target {
-        PluginClass {
-            plugin_class: unsafe { lilv_plugin_classes_get(self.plugin_classes, i) } as *mut Void,
-            world: self.world.clone(),
-        }
-    }
-}
+pub type PluginClasses = Collection<lib::LilvPluginClasses, lib::LilvPluginClass, PluginClass>;
 
 impl PluginClasses {
-    pub fn get_by_uri<'a>(&'a self, uri: &Node) -> Option<PluginClass> {
-        let ptr = unsafe { lilv_plugin_classes_get_by_uri(self.plugin_classes, uri.node) };
-
-        if ptr.is_null() {
-            None
-        } else {
-            Some(PluginClass {
-                plugin_class: ptr as *mut Void,
-                world: self.world.clone(),
-            })
-        }
-    }
-
-    pub fn iter<'a>(&'a self) -> Iter<'a, Self> {
-        Iter::new(
-            self,
-            lilv_plugin_classes_begin,
-            lilv_plugin_classes_is_end,
-            lilv_plugin_classes_next,
-        )
-    }
-
     pub fn size(&self) -> usize {
-        unsafe { lilv_plugin_classes_size(self.plugin_classes) as usize }
+        unsafe { lib::lilv_plugin_classes_size(self.inner.read().as_ptr()) as _ }
+    }
+
+    pub fn get_by_uri(&self, uri: &Node) -> Option<PluginClass> {
+        let inner = self.inner.read().as_ptr();
+        let uri = uri.inner.read().as_ptr();
+
+        Some(PluginClass::new_borrowed(
+            NonNull::new(unsafe { lib::lilv_plugin_classes_get_by_uri(inner, uri) as _ })?,
+            self.owner.clone(),
+        ))
     }
 }
 
-impl Drop for PluginClasses {
-    fn drop(&mut self) {
-        if self.owned {
-            unsafe { lilv_plugin_classes_free(self.plugin_classes as *mut Void) }
-        }
+impl CollectionTrait for PluginClasses {
+    type Inner = lib::LilvPluginClasses;
+    type InnerTarget = lib::LilvPluginClass;
+    type Target = PluginClass;
+    type Owner = Arc<InnerWorld>;
+
+    unsafe fn inner(&self) -> *const Self::Inner {
+        self.inner.read().as_ptr()
+    }
+
+    fn begin_fn() -> BeginFn<Self> {
+        lib::lilv_plugin_classes_begin
+    }
+
+    fn is_end_fn() -> IsEndFn<Self> {
+        lib::lilv_plugin_classes_is_end
+    }
+
+    fn get_fn() -> GetFn<Self> {
+        lib::lilv_plugin_classes_get
+    }
+
+    fn next_fn() -> NextFn<Self> {
+        lib::lilv_plugin_classes_next
+    }
+
+    fn free_fn() -> FreeFn<Self> {
+        lib::lilv_plugin_classes_free
+    }
+
+    fn get(&self, i: *mut lib::LilvIter) -> Self::Target {
+        PluginClass::new_borrowed(
+            NonNull::new(unsafe { Self::get_fn()(self.inner(), i) as _ }).unwrap(),
+            self.owner.clone(),
+        )
     }
 }

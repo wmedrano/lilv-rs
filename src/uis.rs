@@ -1,75 +1,62 @@
-use crate::collection::Collection;
-use crate::collection::Iter;
+use crate::collection::*;
 use crate::node::Node;
+use crate::plugin::Plugin;
 use crate::ui::UI;
-use crate::world::World;
-use crate::Void;
-use std::rc::Rc;
+use lilv_sys as lib;
+use std::ptr::NonNull;
 
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_uis_free(uis: *const Void);
-    fn lilv_uis_size(uis: *const Void) -> u32;
-    fn lilv_uis_begin(uis: *const Void) -> *mut Void;
-    fn lilv_uis_get(uis: *const Void, i: *mut Void) -> *const Void;
-    fn lilv_uis_next(uis: *const Void, i: *mut Void) -> *mut Void;
-    fn lilv_uis_is_end(uis: *const Void, i: *mut Void) -> u8;
-    fn lilv_uis_get_by_uri(uis: *const Void, uri: *const Void) -> *const Void;
-}
+pub type UIs<'a> = Collection<lib::LilvUIs, lib::LilvUI, UI<'a>, &'a Plugin>;
 
-pub struct UIs {
-    pub(crate) uis: *const Void,
-    pub(crate) owned: bool,
-    pub(crate) world: Rc<World>,
-}
-
-impl Drop for UIs {
-    fn drop(&mut self) {
-        if self.owned {
-            unsafe { lilv_uis_free(self.uis) }
-        }
-    }
-}
-
-impl AsRef<*const Void> for UIs {
-    fn as_ref(&self) -> &*const Void {
-        &self.uis
-    }
-}
-
-impl<'a> Collection<'a> for UIs
-where
-    Self: 'a,
-{
-    type Target = UI;
-
-    fn get(&self, i: *mut Void) -> Self::Target {
-        UI {
-            ui: unsafe { lilv_uis_get(self.uis, i) as *mut _ },
-            world: self.world.clone(),
-        }
-    }
-}
-
-impl UIs {
-    pub fn get_by_uri<'a>(&'a self, uri: &Node) -> Option<UI> {
-        let ptr = unsafe { lilv_uis_get_by_uri(self.uis, uri.node) };
-
-        if ptr.is_null() {
-            None
-        } else {
-            Some(UI {
-                ui: ptr as *mut _,
-                world: self.world.clone(),
-            })
-        }
-    }
-
-    pub fn iter<'a>(&'a self) -> Iter<'a, Self> {
-        Iter::new(self, lilv_uis_begin, lilv_uis_is_end, lilv_uis_next)
-    }
-
+impl<'a> UIs<'a> {
     pub fn size(&self) -> usize {
-        unsafe { lilv_uis_size(self.uis) as usize }
+        unsafe { lib::lilv_uis_size(self.inner.read().as_ptr()) as _ }
+    }
+
+    pub fn get_by_uri(&self, uri: &Node) -> Option<UI> {
+        let inner = self.inner.read().as_ptr();
+        let uri = uri.inner.read().as_ptr();
+
+        Some(UI::new_borrowed(
+            NonNull::new(unsafe { lib::lilv_plugins_get_by_uri(inner, uri) as _ })?,
+            self.owner,
+        ))
+    }
+}
+
+impl<'a> CollectionTrait for UIs<'a> {
+    type Inner = lib::LilvUIs;
+    type InnerTarget = lib::LilvUI;
+    type Target = UI<'a>;
+    type Owner = &'a Plugin;
+
+    unsafe fn inner(&self) -> *const Self::Inner {
+        self.inner.read().as_ptr()
+    }
+
+    fn begin_fn() -> BeginFn<Self> {
+        lib::lilv_uis_begin
+    }
+
+    fn is_end_fn() -> IsEndFn<Self> {
+        lib::lilv_uis_is_end
+    }
+
+    fn get_fn() -> GetFn<Self> {
+        lib::lilv_uis_get
+    }
+
+    fn next_fn() -> NextFn<Self> {
+        lib::lilv_uis_next
+    }
+
+    fn free_fn() -> FreeFn<Self> {
+        lib::lilv_uis_free
+    }
+
+    fn get(&self, i: *mut lib::LilvIter) -> Self::Target {
+        UI::new_borrowed(
+            NonNull::new(unsafe { Self::get_fn()(self.inner(), i) as _ }).unwrap(),
+            self.owner,
+        )
     }
 }

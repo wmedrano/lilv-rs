@@ -1,303 +1,184 @@
-use crate::world::new_node;
-use crate::world::World;
-use crate::Void;
+use crate::world::InnerWorld;
+use lilv_sys as lib;
+use parking_lot::RwLock;
 use std::ffi::CStr;
-use std::ffi::CString;
-use std::marker::PhantomData;
-use std::ptr;
-use std::rc::Rc;
+use std::ptr::NonNull;
+use std::sync::Arc;
 
-#[link(name = "lilv-0")]
 extern "C" {
-    fn lilv_node_duplicate(value: *const Void) -> *mut Void;
-    fn lilv_node_equals(value: *const Void, other: *const Void) -> u8;
-    fn lilv_node_get_turtle_token(value: *const Void) -> *mut i8;
-    fn lilv_node_is_uri(value: *const Void) -> u8;
-    fn lilv_node_as_uri(value: *const Void) -> *const i8;
-    fn lilv_node_is_blank(value: *const Void) -> u8;
-    fn lilv_node_as_blank(value: *const Void) -> *const i8;
-    fn lilv_node_is_literal(value: *const Void) -> u8;
-    fn lilv_node_is_string(value: *const Void) -> u8;
-    fn lilv_node_as_string(value: *const Void) -> *const i8;
-    fn lilv_node_get_path(value: *const Void, hostname: *mut *mut i8) -> *mut i8;
-    fn lilv_node_is_float(value: *const Void) -> u8;
-    fn lilv_node_as_float(value: *const Void) -> f32;
-    fn lilv_node_is_int(value: *const Void) -> u8;
-    fn lilv_node_as_int(value: *const Void) -> i32;
-    fn lilv_node_is_bool(value: *const Void) -> u8;
-    fn lilv_node_as_bool(value: *const Void) -> u8;
-    fn lilv_node_free(val: *mut Void);
-    fn lilv_free(val: *mut Void);
+    // Needed for Node::get_path as it actually returns
+    // things allocated in Serd.
+    fn serd_free(ptr: *mut std::os::raw::c_void);
 }
 
-#[link(name = "serd-0")]
-extern "C" {
-    fn serd_free(val: *mut Void);
+unsafe impl Send for Node {}
+unsafe impl Sync for Node {}
+
+pub struct Node {
+    pub(crate) inner: RwLock<NonNull<lib::LilvNodeImpl>>,
+    borrowed: bool,
+    world: Arc<InnerWorld>,
 }
 
-pub struct Node<'a> {
-    pub(crate) node: *mut Void,
-    pub(crate) world: Rc<World>,
-    pub(crate) owned: bool,
-    pub(crate) _phantom: PhantomData<(Value<'a>, fn() -> &'a ())>,
-}
-
-impl<'a> Clone for Node<'a> {
-    fn clone(&self) -> Self {
-        new_node(&self.world, unsafe { lilv_node_duplicate(self.node) })
-    }
-}
-
-impl<'a> PartialEq for Node<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        unsafe { lilv_node_equals(self.node, other.node) != 0 }
-    }
-}
-
-impl<'a> Drop for Node<'a> {
-    fn drop(&mut self) {
-        if self.owned {
-            let _lock = (*self.world).0.write().unwrap();
-            unsafe { lilv_node_free(self.node) };
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Value<'a> {
-    Uri(&'a CStr),
-    Blank(&'a CStr),
-    String(&'a CStr),
-    Float(f32),
-    Int(i32),
-    Bool(bool),
-}
-
-impl<'a> Value<'a> {
-    pub fn try_into_uri(self) -> Result<&'a CStr, Self> {
-        if let Value::Uri(uri) = self {
-            Ok(uri)
-        } else {
-            Err(self)
+impl Node {
+    pub(crate) fn new(ptr: NonNull<lib::LilvNodeImpl>, world: Arc<InnerWorld>) -> Self {
+        Self {
+            inner: RwLock::new(ptr),
+            borrowed: false,
+            world,
         }
     }
 
-    pub fn try_into_blank(self) -> Result<&'a CStr, Self> {
-        if let Value::Blank(blank) = self {
-            Ok(blank)
-        } else {
-            Err(self)
+    pub(crate) fn new_borrowed(ptr: NonNull<lib::LilvNodeImpl>, world: Arc<InnerWorld>) -> Self {
+        Self {
+            inner: RwLock::new(ptr),
+            borrowed: true,
+            world,
         }
     }
 
-    pub fn try_into_string(self) -> Result<&'a CStr, Self> {
-        if let Value::String(string) = self {
-            Ok(string)
-        } else {
-            Err(self)
-        }
-    }
+    /// Returns this value as a Turtle/SPARQL token.
+    pub fn turtle_token(&self) -> String {
+        let node = self.inner.read().as_ptr();
 
-    pub fn try_into_float(self) -> Result<f32, Self> {
-        if let Value::Float(float) = self {
-            Ok(float)
-        } else {
-            Err(self)
-        }
-    }
-
-    pub fn try_into_int(self) -> Result<i32, Self> {
-        if let Value::Int(int) = self {
-            Ok(int)
-        } else {
-            Err(self)
-        }
-    }
-
-    pub fn try_into_bool(self) -> Result<bool, Self> {
-        if let Value::Bool(b) = self {
-            Ok(b)
-        } else {
-            Err(self)
-        }
-    }
-
-    pub fn into_uri(self) -> &'a CStr {
-        self.try_into_uri().unwrap()
-    }
-
-    pub fn into_blank(self) -> &'a CStr {
-        self.try_into_blank().unwrap()
-    }
-
-    pub fn into_string(self) -> &'a CStr {
-        self.try_into_string().unwrap()
-    }
-
-    pub fn into_float(self) -> f32 {
-        self.try_into_float().unwrap()
-    }
-
-    pub fn into_int(self) -> i32 {
-        self.try_into_int().unwrap()
-    }
-
-    pub fn into_bool(self) -> bool {
-        self.try_into_bool().unwrap()
-    }
-}
-
-impl<'a> Node<'a> {
-    pub fn get_turtle_token(&self) -> CString {
         unsafe {
-            let token = lilv_node_get_turtle_token(self.node);
-            let ret = CString::from(CStr::from_ptr(token));
-            lilv_free(token as *mut Void);
-            ret
+            let original = lib::lilv_node_get_turtle_token(node);
+            let rusty = CStr::from_ptr(lib::lilv_node_get_turtle_token(self.inner.read().as_ptr()))
+                .to_string_lossy()
+                .into_owned();
+            lib::lilv_free(original as _);
+            rusty
         }
     }
 
-    pub fn value(&self) -> Value<'a> {
-        unsafe {
-            if lilv_node_is_uri(self.node) != 0 {
-                Value::Uri(CStr::from_ptr(lilv_node_as_uri(self.node)))
-            } else if lilv_node_is_blank(self.node) != 0 {
-                Value::Blank(CStr::from_ptr(lilv_node_as_blank(self.node)))
-            } else if lilv_node_is_string(self.node) != 0 {
-                Value::String(CStr::from_ptr(lilv_node_as_string(self.node)))
-            } else if lilv_node_is_float(self.node) != 0 {
-                Value::Float(lilv_node_as_float(self.node))
-            } else if lilv_node_is_int(self.node) != 0 {
-                Value::Int(lilv_node_as_int(self.node))
-            } else if lilv_node_is_bool(self.node) != 0 {
-                Value::Bool(lilv_node_as_bool(self.node) != 0)
-            } else {
-                unreachable!()
-            }
-        }
-    }
-
+    /// Returns whether the value is a URI (resource).
     pub fn is_uri(&self) -> bool {
-        unsafe { lilv_node_is_uri(self.node) != 0 }
+        unsafe { lib::lilv_node_is_uri(self.inner.read().as_ptr()) }
     }
 
+    /// Returns this value as a URI string.
+    pub fn as_uri(&self) -> Option<&str> {
+        if self.is_uri() {
+            Some(unsafe {
+                CStr::from_ptr(lib::lilv_node_as_uri(self.inner.read().as_ptr()))
+                    .to_str()
+                    .ok()?
+            })
+        } else {
+            None
+        }
+    }
+
+    /// Returns whether the value is a blank node (resource with no URI).
     pub fn is_blank(&self) -> bool {
-        unsafe { lilv_node_is_blank(self.node) != 0 }
+        unsafe { lib::lilv_node_is_blank(self.inner.read().as_ptr()) }
     }
 
-    pub fn is_string(&self) -> bool {
-        unsafe { lilv_node_is_string(self.node) != 0 }
-    }
-
-    pub fn is_float(&self) -> bool {
-        unsafe { lilv_node_is_float(self.node) != 0 }
-    }
-
-    pub fn is_int(&self) -> bool {
-        unsafe { lilv_node_is_int(self.node) != 0 }
-    }
-
-    pub fn is_bool(&self) -> bool {
-        unsafe { lilv_node_is_bool(self.node) != 0 }
+    /// Returns this value as a blank node identifier.
+    pub fn as_blank(&self) -> Option<&str> {
+        if self.is_blank() {
+            Some(unsafe {
+                CStr::from_ptr(lib::lilv_node_as_blank(self.inner.read().as_ptr()))
+                    .to_str()
+                    .ok()?
+            })
+        } else {
+            None
+        }
     }
 
     pub fn is_literal(&self) -> bool {
-        unsafe { lilv_node_is_literal(self.node) != 0 }
+        unsafe { lib::lilv_node_is_literal(self.inner.read().as_ptr()) }
     }
 
-    pub fn get_path(&self, with_hostname: bool) -> Option<(CString, Option<CString>)> {
-        if !self.is_uri() {
-            return None;
+    pub fn is_string(&self) -> bool {
+        unsafe { lib::lilv_node_is_string(self.inner.read().as_ptr()) }
+    }
+
+    pub fn as_str(&self) -> Option<&str> {
+        Some(unsafe {
+            CStr::from_ptr(lib::lilv_node_as_string(self.inner.read().as_ptr()))
+                .to_str()
+                .ok()?
+        })
+    }
+
+    pub fn get_path(&self) -> Option<(String, String)> {
+        let node = self.inner.read().as_ptr();
+        let mut hostname = std::ptr::null_mut();
+        let path = NonNull::new(unsafe { lib::lilv_node_get_path(node, &mut hostname) })?;
+
+        unsafe {
+            let rusty_path = CStr::from_ptr(path.as_ptr()).to_string_lossy().into_owned();
+            let rusty_hostname = CStr::from_ptr(hostname).to_string_lossy().into_owned();
+
+            serd_free(path.as_ptr() as _);
+            serd_free(hostname as _);
+
+            Some((rusty_path, rusty_hostname))
         }
+    }
 
-        let mut hostname = ptr::null_mut();
+    pub fn is_float(&self) -> bool {
+        unsafe { lib::lilv_node_is_float(self.inner.read().as_ptr()) }
+    }
 
-        let path = unsafe {
-            lilv_node_get_path(
-                self.node,
-                if with_hostname {
-                    &mut hostname
-                } else {
-                    ptr::null_mut()
-                },
-            )
-        };
-
-        if path.is_null() {
-            None
+    pub fn as_float(&self) -> Option<f32> {
+        if self.is_float() {
+            Some(unsafe { lib::lilv_node_as_float(self.inner.read().as_ptr()) })
         } else {
-            unsafe {
-                let ret_path = CString::from(CStr::from_ptr(path));
-                lilv_free(path as *mut Void);
+            None
+        }
+    }
 
-                let ret_hostname = if with_hostname & !hostname.is_null() {
-                    let ret_hostname = CString::from(CStr::from_ptr(hostname));
-                    serd_free(hostname as *mut Void);
-                    Some(ret_hostname)
-                } else {
-                    None
-                };
+    pub fn is_int(&self) -> bool {
+        unsafe { lib::lilv_node_is_int(self.inner.read().as_ptr()) }
+    }
 
-                Some((ret_path, ret_hostname))
-            }
+    pub fn as_int(&self) -> Option<i32> {
+        if self.is_int() {
+            Some(unsafe { lib::lilv_node_as_int(self.inner.read().as_ptr()) })
+        } else {
+            None
+        }
+    }
+
+    pub fn is_bool(&self) -> bool {
+        unsafe { lib::lilv_node_is_bool(self.inner.read().as_ptr()) }
+    }
+
+    pub fn as_bool(&self) -> Option<bool> {
+        if self.is_bool() {
+            Some(unsafe { lib::lilv_node_as_bool(self.inner.read().as_ptr()) })
+        } else {
+            None
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::node::Value;
-    use crate::world::World;
-    use crate::world::WorldImpl;
-    use std::ffi::CString;
-    use std::rc::Rc;
-
-    fn world() -> Rc<World> {
-        World::new().unwrap()
+impl Clone for Node {
+    fn clone(&self) -> Self {
+        Self {
+            inner: RwLock::new(
+                NonNull::new(unsafe { lib::lilv_node_duplicate(self.inner.read().as_ptr()) })
+                    .unwrap(),
+            ),
+            borrowed: false,
+            world: self.world.clone(),
+        }
     }
+}
 
-    #[test]
-    fn uri() {
-        let w = world();
-        let uri = w.new_uri(&CString::new("http://example.org").unwrap());
-        assert_eq!(
-            uri.value(),
-            Value::Uri(CString::new("http://example.org").unwrap().as_ref()),
-        );
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe { lib::lilv_node_equals(self.inner.read().as_ptr(), other.inner.read().as_ptr()) }
     }
+}
 
-    #[test]
-    fn float() {
-        let w = world();
-        let float = w.new_float(12.0);
-        assert_eq!(float.value(), Value::Float(12.0));
-        assert_eq!(float == w.new_float(12.0), true);
-        assert_ne!(float == w.new_float(121.0), true);
-    }
-
-    #[test]
-    fn int() {
-        let w = world();
-        let int = w.new_int(34);
-        assert_eq!(int.value(), Value::Int(34));
-        assert_eq!(int == w.new_int(34), true);
-        assert_ne!(int == w.new_int(56), true);
-    }
-
-    #[test]
-    fn any() {
-        let w = world();
-        let int = w.new_int(0);
-        let float = w.new_float(0.0);
-        assert_ne!(int == float, true);
-        assert_ne!(int.value() == float.value(), true);
-    }
-
-    #[test]
-    fn clone() {
-        let w = world();
-        let a = w.new_int(1337);
-        let b = a.clone();
-        assert_eq!(a == b, true);
+impl Drop for Node {
+    fn drop(&mut self) {
+        if !self.borrowed {
+            unsafe { lib::lilv_node_free(self.inner.write().as_ptr()) }
+        }
     }
 }

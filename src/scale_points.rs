@@ -1,65 +1,52 @@
-use crate::collection::Collection;
-use crate::collection::Iter;
+use crate::collection::*;
+use crate::port::Port;
 use crate::scale_point::ScalePoint;
-use crate::world::World;
-use crate::Void;
-use std::rc::Rc;
+use lilv_sys as lib;
+use std::ptr::NonNull;
 
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_scale_points_free(scale_points: *mut Void);
-    fn lilv_scale_points_size(scale_points: *const Void) -> u32;
-    fn lilv_scale_points_begin(scale_points: *const Void) -> *mut Void;
-    fn lilv_scale_points_get(scale_points: *const Void, i: *mut Void) -> *const Void;
-    fn lilv_scale_points_next(scale_points: *const Void, i: *mut Void) -> *mut Void;
-    fn lilv_scale_points_is_end(scale_points: *const Void, i: *mut Void) -> u8;
-}
+pub type ScalePoints<'a> =
+    Collection<lib::LilvScalePoints, lib::LilvScalePoint, ScalePoint<'a>, &'a Port<'a>>;
 
-pub struct ScalePoints {
-    pub(crate) scale_points: *const Void,
-    pub(crate) owned: bool,
-    pub(crate) world: Rc<World>,
-}
-
-impl AsRef<*const Void> for ScalePoints {
-    fn as_ref(&self) -> &*const Void {
-        &self.scale_points
-    }
-}
-
-impl<'a> Collection<'a> for ScalePoints
-where
-    Self: 'a,
-{
-    type Target = ScalePoint;
-
-    fn get(&self, i: *mut Void) -> Self::Target {
-        ScalePoint {
-            point: unsafe { lilv_scale_points_get(self.scale_points, i) } as *mut Void,
-            world: self.world.clone(),
-        }
-    }
-}
-
-impl ScalePoints {
-    pub fn iter<'a>(&'a self) -> Iter<'a, Self> {
-        Iter::new(
-            self,
-            lilv_scale_points_begin,
-            lilv_scale_points_is_end,
-            lilv_scale_points_next,
-        )
-    }
-
+impl<'a> ScalePoints<'a> {
     pub fn size(&self) -> usize {
-        unsafe { lilv_scale_points_size(self.scale_points) as usize }
+        unsafe { lib::lilv_scale_points_size(self.inner.read().as_ptr()) as _ }
     }
 }
 
-impl Drop for ScalePoints {
-    fn drop(&mut self) {
-        if self.owned {
-            unsafe { lilv_scale_points_free(self.scale_points as *mut Void) }
-        }
+impl<'a> CollectionTrait for ScalePoints<'a> {
+    type Inner = lib::LilvScalePoints;
+    type InnerTarget = lib::LilvScalePoint;
+    type Target = ScalePoint<'a>;
+    type Owner = &'a Port<'a>;
+
+    unsafe fn inner(&self) -> *const Self::Inner {
+        self.inner.read().as_ptr()
+    }
+
+    fn begin_fn() -> BeginFn<Self> {
+        lib::lilv_scale_points_begin
+    }
+
+    fn is_end_fn() -> IsEndFn<Self> {
+        lib::lilv_scale_points_is_end
+    }
+
+    fn get_fn() -> GetFn<Self> {
+        lib::lilv_scale_points_get
+    }
+
+    fn next_fn() -> NextFn<Self> {
+        lib::lilv_scale_points_next
+    }
+
+    fn free_fn() -> FreeFn<Self> {
+        lib::lilv_scale_points_free
+    }
+
+    fn get(&self, i: *mut lib::LilvIter) -> Self::Target {
+        ScalePoint::new(
+            NonNull::new(unsafe { Self::get_fn()(self.inner(), i) as _ }).unwrap(),
+            self.owner,
+        )
     }
 }

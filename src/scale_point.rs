@@ -1,30 +1,40 @@
 use crate::node::Node;
-use crate::world::ref_node;
-use crate::world::World;
-use crate::Void;
-use std::rc::Rc;
+use crate::port::Port;
+use lilv_sys as lib;
+use parking_lot::RwLock;
+use std::ptr::NonNull;
 
-#[link(name = "lilv-0")]
-extern "C" {
-    fn lilv_scale_point_get_label(point: *const Void) -> *const Void;
-    fn lilv_scale_point_get_value(point: *const Void) -> *const Void;
+unsafe impl<'a> Send for ScalePoint<'a> {}
+unsafe impl<'a> Sync for ScalePoint<'a> {}
+
+pub struct ScalePoint<'a> {
+    pub(crate) inner: RwLock<NonNull<lib::LilvScalePoint>>,
+    pub(crate) port: &'a Port<'a>,
 }
 
-pub struct ScalePoint {
-    pub(crate) point: *const Void,
-    pub(crate) world: Rc<World>,
-}
-
-impl ScalePoint {
-    pub fn get_label(&self) -> Node {
-        ref_node(&self.world, unsafe {
-            lilv_scale_point_get_label(self.point)
-        })
+impl<'a> ScalePoint<'a> {
+    pub(crate) fn new(ptr: NonNull<lib::LilvScalePoint>, port: &'a Port) -> Self {
+        Self {
+            inner: RwLock::new(ptr),
+            port,
+        }
     }
 
-    pub fn get_value(&self) -> Node {
-        ref_node(&self.world, unsafe {
-            lilv_scale_point_get_value(self.point)
-        })
+    pub fn label(&self) -> Node {
+        let inner = self.inner.read().as_ptr();
+
+        Node::new_borrowed(
+            NonNull::new(unsafe { lib::lilv_scale_point_get_label(inner) as _ }).unwrap(),
+            self.port.plugin.world.clone(),
+        )
+    }
+
+    pub fn value(&self) -> Node {
+        let inner = self.inner.read().as_ptr();
+
+        Node::new_borrowed(
+            NonNull::new(unsafe { lib::lilv_scale_point_get_value(inner) as _ }).unwrap(),
+            self.port.plugin.world.clone(),
+        )
     }
 }
