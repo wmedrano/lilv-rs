@@ -119,7 +119,7 @@ impl World {
         )
     }
 
-    /// Load all installed LV2 bundles on the system.
+    /// Loads all installed LV2 bundles on the system.
     ///
     /// # Example
     /// ```
@@ -130,8 +130,8 @@ impl World {
         unsafe { lib::lilv_world_load_all(self.inner.inner.write().as_ptr()) }
     }
 
-    /// Load a specific bundle. `bundle_uri` must be a fully qualified URI to
-    /// the bundle directory, with the trailing slash, eg `file:///usr/lib/lv2/foo.lv2/`.
+    /// Loads a specific bundle. `bundle_uri` must be a fully qualified URI to the bundle directory,
+    /// with the trailing slash, eg `file:///usr/lib/lv2/foo.lv2/`.
     pub fn load_bundle(&self, bundle_uri: &Node) {
         let world = self.inner.inner.write().as_ptr();
         let bundle_uri = bundle_uri.inner.read().as_ptr();
@@ -139,10 +139,11 @@ impl World {
         unsafe { lib::lilv_world_load_bundle(world, bundle_uri) }
     }
 
-    /// Load all specifications from currently loaded bundles
+    /// Loads all specifications from currently loaded bundles.
     ///
-    /// This is for hosts tha explicitly load specific bundles, its use is not
-    /// necessary when using `World::load_all`. This function parses the specifications and adsds them to the model.
+    /// This is for hosts that explicitly load specific bundles, its use is not
+    /// necessary when using [`load_all`](#method.load_all). This function parses the specifications
+    /// and adds them to the model.
     pub fn load_specifications(&self) {
         let world = self.inner.inner.write().as_ptr();
         unsafe { lib::lilv_world_load_specifications(world) }
@@ -150,9 +151,9 @@ impl World {
 
     /// Load all plugin classes from currently loaded specifications.
     ///
-    /// Must be called after `World::load_specifications`. This is for hosts
-    /// that explicitly load specific bundles; its use is not necessary when
-    /// using `World::load_all`.
+    /// Must be called after [`load_specifications`](#method.load_specifications). This is for hosts
+    /// that explicitly load specific bundles; its use is not necessary when using
+    /// [`load_all`](#method.load_all).
     pub fn load_plugin_classes(&self) {
         let world = self.inner.inner.write().as_ptr();
         unsafe { lib::lilv_world_load_plugin_classes(world) }
@@ -160,10 +161,10 @@ impl World {
 
     /// Unload a specific bundle.
     ///
-    /// This unloads statements loaded by `load_bundle`. Note this is not
-    /// necessarily all information loaded from the bundle. If any  resources
-    /// have been separately loaded with `World::load_resource`, they must be
-    /// separately unloaded with `World::unload_resource`.
+    /// This unloads statements loaded by `load_bundle`. Note this is not necessarily all
+    /// information loaded from the bundle. If any  resources have been separately loaded with
+    /// [`load_resource`](#method.load_resource), they must be separately unloaded with
+    /// [`unload_resource`](#method.unload_resource).
     pub fn unload_bundle(&self, bundle_uri: &Node) -> bool {
         let world = self.inner.inner.write().as_ptr();
         let bundle_uri = bundle_uri.inner.read().as_ptr();
@@ -223,8 +224,7 @@ impl World {
         )
     }
 
-    /// Find nodes matching a triple pattern. Either subject or object may be
-    /// `None`, but not both.
+    /// Find nodes matching a triple pattern. Either subject or object may be `None`, but not both.
     pub fn find_nodes(
         &self,
         subject: Option<&Node>,
@@ -246,8 +246,8 @@ impl World {
         ))
     }
 
-    /// Find a single node that matches a pattern. Exactly one of `subject`,
-    /// `predicate`, or `object` must be `None`.
+    /// Find a single node that matches a pattern. Exactly one of `subject`, `predicate`, or
+    /// `object` must be `None`.
     pub fn get(
         &self,
         subject: Option<&Node>,
@@ -294,8 +294,8 @@ impl World {
 
     /// Get an LV2 symbol for some subject.
     ///
-    /// This will return the lv2:symbol property of the subject if it is given
-    /// explicitly. Otherwise it will attempt to derive a symbol from the URI.
+    /// This will return the lv2:symbol property of the subject if it is given explicitly. Otherwise
+    /// it will attempt to derive a symbol from the URI.
     pub fn symbol(&self, subject: &Node) -> Option<Node> {
         let world = self.inner.inner.read().as_ptr();
         let subject = subject.inner.read().as_ptr();
