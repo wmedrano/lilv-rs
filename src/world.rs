@@ -11,6 +11,8 @@ use std::sync::Arc;
 unsafe impl Send for InnerWorld {}
 unsafe impl Sync for InnerWorld {}
 
+/// The world represents all Lilv state. It is used to discover/load/cache LV2
+/// data (plugins, UIs, and extensions).
 pub struct World {
     inner: Arc<InnerWorld>,
 }
@@ -117,10 +119,19 @@ impl World {
         )
     }
 
+    /// Loads all installed LV2 bundles on the system.
+    ///
+    /// # Example
+    /// ```
+    /// let world = lilv::World::new();
+    /// world.load_all();
+    /// ```
     pub fn load_all(&self) {
         unsafe { lib::lilv_world_load_all(self.inner.inner.write().as_ptr()) }
     }
 
+    /// Loads a specific bundle. `bundle_uri` must be a fully qualified URI to the bundle directory,
+    /// with the trailing slash, eg `file:///usr/lib/lv2/foo.lv2/`.
     pub fn load_bundle(&self, bundle_uri: &Node) {
         let world = self.inner.inner.write().as_ptr();
         let bundle_uri = bundle_uri.inner.read().as_ptr();
@@ -128,16 +139,32 @@ impl World {
         unsafe { lib::lilv_world_load_bundle(world, bundle_uri) }
     }
 
+    /// Loads all specifications from currently loaded bundles.
+    ///
+    /// This is for hosts that explicitly load specific bundles, its use is not
+    /// necessary when using [`load_all`](#method.load_all). This function parses the specifications
+    /// and adds them to the model.
     pub fn load_specifications(&self) {
         let world = self.inner.inner.write().as_ptr();
         unsafe { lib::lilv_world_load_specifications(world) }
     }
 
+    /// Load all plugin classes from currently loaded specifications.
+    ///
+    /// Must be called after [`load_specifications`](#method.load_specifications). This is for hosts
+    /// that explicitly load specific bundles; its use is not necessary when using
+    /// [`load_all`](#method.load_all).
     pub fn load_plugin_classes(&self) {
         let world = self.inner.inner.write().as_ptr();
         unsafe { lib::lilv_world_load_plugin_classes(world) }
     }
 
+    /// Unload a specific bundle.
+    ///
+    /// This unloads statements loaded by `load_bundle`. Note this is not necessarily all
+    /// information loaded from the bundle. If any  resources have been separately loaded with
+    /// [`load_resource`](#method.load_resource), they must be separately unloaded with
+    /// [`unload_resource`](#method.unload_resource).
     pub fn unload_bundle(&self, bundle_uri: &Node) -> bool {
         let world = self.inner.inner.write().as_ptr();
         let bundle_uri = bundle_uri.inner.read().as_ptr();
@@ -145,6 +172,10 @@ impl World {
         unsafe { lib::lilv_world_unload_bundle(world, bundle_uri) == 0 }
     }
 
+    /// Load all the data associated with the given resource.
+    ///
+    /// # Return
+    /// The number of files parsed.
     pub fn load_resource(&self, resource: &Node) -> Result<usize, ()> {
         let world = self.inner.inner.write().as_ptr();
         let resource = resource.inner.read().as_ptr();
@@ -155,6 +186,7 @@ impl World {
         }
     }
 
+    /// Unload all the data associated with the given resource.
     pub fn unload_resource(&self, resource: &Node) -> bool {
         let world = self.inner.inner.write().as_ptr();
         let resource = resource.inner.read().as_ptr();
@@ -162,6 +194,7 @@ impl World {
         unsafe { lib::lilv_world_unload_resource(world, resource) == 0 }
     }
 
+    /// Get the parent of all other plugin classes, lv2:Plugin.
     pub fn plugin_class(&self) -> PluginClass {
         let world = self.inner.inner.read().as_ptr();
 
@@ -171,6 +204,7 @@ impl World {
         )
     }
 
+    /// Return all found plugin classes.
     pub fn plugin_classes(&self) -> PluginClasses {
         let world = self.inner.inner.read().as_ptr();
 
@@ -180,6 +214,7 @@ impl World {
         )
     }
 
+    /// Return all plugins.
     pub fn all_plugins(&self) -> Plugins {
         let world = self.inner.inner.read().as_ptr();
 
@@ -189,6 +224,7 @@ impl World {
         )
     }
 
+    /// Find nodes matching a triple pattern. Either subject or object may be `None`, but not both.
     pub fn find_nodes(
         &self,
         subject: Option<&Node>,
@@ -210,6 +246,8 @@ impl World {
         ))
     }
 
+    /// Find a single node that matches a pattern. Exactly one of `subject`, `predicate`, or
+    /// `object` must be `None`.
     pub fn get(
         &self,
         subject: Option<&Node>,
@@ -233,6 +271,7 @@ impl World {
         ))
     }
 
+    /// Returns true iff a statement matching a certain pattern exists.
     pub fn ask(
         &self,
         subject: Option<&Node>,
@@ -253,6 +292,10 @@ impl World {
         unsafe { lib::lilv_world_ask(world, subject, predicate, object) }
     }
 
+    /// Get an LV2 symbol for some subject.
+    ///
+    /// This will return the lv2:symbol property of the subject if it is given explicitly. Otherwise
+    /// it will attempt to derive a symbol from the URI.
     pub fn symbol(&self, subject: &Node) -> Option<Node> {
         let world = self.inner.inner.read().as_ptr();
         let subject = subject.inner.read().as_ptr();
@@ -261,6 +304,13 @@ impl World {
             NonNull::new(unsafe { lib::lilv_world_get_symbol(world, subject) })?,
             self.inner.clone(),
         ))
+    }
+}
+
+impl Default for World {
+    /// Return a new empty world.
+    fn default() -> World {
+        World::new()
     }
 }
 

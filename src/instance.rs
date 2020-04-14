@@ -4,8 +4,6 @@ use lv2_raw::core::LV2Handle;
 use std::ffi::CStr;
 use std::ptr::NonNull;
 
-enum Distraction {}
-
 #[repr(C)]
 pub(crate) struct InstanceImpl {
     pub descriptor: *const LV2Descriptor,
