@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Install Dependencies
-        run: sudo apt-get -y install liblilv-dev
+        run: sudo apt-get -y install liblilv-dev lv2-examples
       - uses: actions/checkout@v2
       - name: Build
         run: cargo build --verbose

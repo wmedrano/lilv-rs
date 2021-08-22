@@ -87,8 +87,6 @@ pub(crate) type NextFn<C> = unsafe extern "C" fn(
 
 pub(crate) type FreeFn<C> = unsafe extern "C" fn(*mut <C as CollectionTrait>::Inner);
 
-pub(crate) unsafe extern "C" fn fake_free<C: CollectionTrait>(_me: *mut C::Inner) {}
-
 pub struct Iter<'a, C>
 where
     C: CollectionTrait,

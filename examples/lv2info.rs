@@ -256,7 +256,7 @@ fn main() {
         supports_event_pred: w.new_uri("http://lv2plug.in/ns/ext/atom#supportsEvent"),
     };
 
-    for p in w.all_plugins().iter().filter(lilv::Plugin::verify) {
+    for p in w.plugins().filter(lilv::Plugin::verify) {
         print_plugin(&w, &p, &nodes);
     }
 }

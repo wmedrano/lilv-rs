@@ -13,24 +13,22 @@ use std::sync::Arc;
 unsafe impl Send for Plugin {}
 unsafe impl Sync for Plugin {}
 
+/// Can be used to instantiave LV2 plugins.
 pub struct Plugin {
     pub(crate) inner: RwLock<NonNull<lib::LilvPlugin>>,
     pub(crate) world: Arc<InnerWorld>,
 }
 
 impl Plugin {
-    pub(crate) fn new_borrowed(ptr: NonNull<lib::LilvPlugin>, world: Arc<InnerWorld>) -> Self {
-        Self {
-            inner: RwLock::new(ptr),
-            world,
-        }
-    }
-
+    /// Returns true if the plugin is valid. If the world was created with
+    /// `World::load_all`, then this is not necessary. Only valid plugins will
+    /// have been loaded.
     pub fn verify(&self) -> bool {
         let plugin = self.inner.read().as_ptr();
         unsafe { lib::lilv_plugin_verify(plugin) }
     }
 
+    /// The uri of the plugin.
     pub fn uri(&self) -> Node {
         let plugin = self.inner.read().as_ptr();
 
@@ -40,6 +38,7 @@ impl Plugin {
         )
     }
 
+    /// The uri of the plugin's bundle.
     pub fn bundle_uri(&self) -> Node {
         let plugin = self.inner.read().as_ptr();
 
@@ -49,6 +48,7 @@ impl Plugin {
         )
     }
 
+    /// The uri for the data.
     pub fn data_uris(&self) -> Nodes {
         let plugin = self.inner.read().as_ptr();
 
@@ -58,6 +58,7 @@ impl Plugin {
         )
     }
 
+    /// The uri for the library.
     pub fn library_uri(&self) -> Option<Node> {
         let plugin = self.inner.read().as_ptr();
 
@@ -78,6 +79,7 @@ impl Plugin {
         )
     }
 
+    /// The class of the plugin.
     pub fn class(&self) -> PluginClass {
         let plugin = self.inner.read().as_ptr();
 
@@ -87,6 +89,7 @@ impl Plugin {
         )
     }
 
+    /// The value of the predicate or `None` if the plugin does not have one.
     pub fn value(&self, predicate: &Node) -> Option<Nodes> {
         let plugin = self.inner.read().as_ptr();
         let predicate = predicate.inner.read().as_ptr();
@@ -97,6 +100,7 @@ impl Plugin {
         ))
     }
 
+    /// `true` if the plugin supports the feature.
     pub fn has_feature(&self, feature_uri: &Node) -> bool {
         let plugin = self.inner.read().as_ptr();
         let feature_uri = feature_uri.inner.read().as_ptr();
@@ -104,6 +108,7 @@ impl Plugin {
         unsafe { lib::lilv_plugin_has_feature(plugin, feature_uri) }
     }
 
+    /// The set of features that are supported.
     pub fn supported_features(&self) -> Option<Nodes> {
         let plugin = self.inner.read().as_ptr();
 
@@ -113,6 +118,7 @@ impl Plugin {
         ))
     }
 
+    /// The set of features that are required to instantiate the plugin.
     pub fn required_features(&self) -> Option<Nodes> {
         let plugin = self.inner.read().as_ptr();
 
@@ -122,6 +128,7 @@ impl Plugin {
         ))
     }
 
+    /// The set of features that are optional to instantiate the plugin.
     pub fn optional_features(&self) -> Option<Nodes> {
         let plugin = self.inner.read().as_ptr();
 
@@ -131,6 +138,7 @@ impl Plugin {
         ))
     }
 
+    /// True if the plugin has extension data for `uri`.
     pub fn has_extension_data(&self, uri: &Node) -> bool {
         let plugin = self.inner.read().as_ptr();
         let uri = uri.inner.read().as_ptr();

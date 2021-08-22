@@ -52,18 +52,17 @@ mod tests {
         let world = World::new();
         world.load_all();
 
-        let plugins = world.all_plugins();
-        let node = world.new_uri("http://lv2plug.in/plugins/eg-amp");
-
-        if let Some(plugin) = plugins.get_by_uri(&node) {
-            assert_eq!(3, plugin.num_ports());
-            println!(
-                "plugin <{}> has {} ports",
-                node.as_uri().unwrap(),
-                plugin.num_ports(),
-            );
-        } else {
-            println!("plugin <{}> not found lol", node.as_uri().unwrap());
+        for plugin in world.plugins() {
+            println!("{:?}", plugin.uri().as_str());
         }
+
+        let node = world.new_uri("http://lv2plug.in/plugins/eg-amp");
+        let plugin = world.plugin(&node).unwrap();
+        assert_eq!(3, plugin.num_ports());
+        println!(
+            "plugin <{}> has {} ports",
+            node.as_uri().unwrap(),
+            plugin.num_ports(),
+        );
     }
 }
