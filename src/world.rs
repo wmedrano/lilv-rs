@@ -1,8 +1,8 @@
 use crate::node::Node;
 use crate::nodes::Nodes;
 use crate::plugin_class::PluginClass;
-use crate::plugin_classes::PluginClasses;
-use crate::plugins::Plugins;
+use crate::plugins::PluginsIter;
+use crate::Plugin;
 use lilv_sys as lib;
 use parking_lot::RwLock;
 use std::ptr::NonNull;
@@ -165,11 +165,15 @@ impl World {
     /// information loaded from the bundle. If any  resources have been separately loaded with
     /// [`load_resource`](#method.load_resource), they must be separately unloaded with
     /// [`unload_resource`](#method.unload_resource).
-    pub fn unload_bundle(&self, bundle_uri: &Node) -> bool {
+    ///
+    /// # Safety
+    /// Unloading bundles that are in use by the host will cause undefined
+    /// behaviour.
+    pub unsafe fn unload_bundle(&self, bundle_uri: &Node) -> bool {
         let world = self.inner.inner.write().as_ptr();
         let bundle_uri = bundle_uri.inner.read().as_ptr();
 
-        unsafe { lib::lilv_world_unload_bundle(world, bundle_uri) == 0 }
+        lib::lilv_world_unload_bundle(world, bundle_uri) == 0
     }
 
     /// Load all the data associated with the given resource.
@@ -187,11 +191,15 @@ impl World {
     }
 
     /// Unload all the data associated with the given resource.
-    pub fn unload_resource(&self, resource: &Node) -> bool {
+    ///
+    /// # Safety
+    /// Unloading resources that are in use by the host will cause undefined
+    /// behaviour.
+    pub unsafe fn unload_resource(&self, resource: &Node) -> bool {
         let world = self.inner.inner.write().as_ptr();
         let resource = resource.inner.read().as_ptr();
 
-        unsafe { lib::lilv_world_unload_resource(world, resource) == 0 }
+        lib::lilv_world_unload_resource(world, resource) == 0
     }
 
     /// Get the parent of all other plugin classes, lv2:Plugin.
@@ -204,24 +212,45 @@ impl World {
         )
     }
 
-    /// Return all found plugin classes.
-    pub fn plugin_classes(&self) -> PluginClasses {
-        let world = self.inner.inner.read().as_ptr();
+    /// An iterable over all the plugins in the world.
+    pub fn plugins(&self) -> PluginsIter {
+        let (ptr, iter) = {
+            let world = self.inner.inner.read();
+            let ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
+            let iter = unsafe { lib::lilv_plugins_begin(ptr) };
+            (ptr, iter)
+        };
 
-        PluginClasses::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_world_get_plugin_classes(world) as _ }).unwrap(),
-            self.inner.clone(),
-        )
+        PluginsIter {
+            world: self.inner.clone(),
+            ptr,
+            iter,
+        }
     }
 
-    /// Return all plugins.
-    pub fn all_plugins(&self) -> Plugins {
-        let world = self.inner.inner.read().as_ptr();
+    /// Get a plugin by its unique identifier.
+    pub fn plugin(&self, uri: &Node) -> Option<Plugin> {
+        let plugin_ptr: *mut lib::LilvPlugin = {
+            let world = self.inner.inner.read();
+            let plugins_ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
+            let uri_ptr = uri.inner.read().as_ptr();
+            unsafe { lib::lilv_plugins_get_by_uri(plugins_ptr, uri_ptr) }
+        } as _;
+        match NonNull::new(plugin_ptr) {
+            Some(ptr) => Some(Plugin {
+                world: self.inner.clone(),
+                inner: RwLock::new(ptr),
+            }),
+            None => None,
+        }
+    }
 
-        Plugins::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_world_get_all_plugins(world) as _ }).unwrap(),
-            self.inner.clone(),
-        )
+    /// The number of plugins loaded.
+    pub fn plugins_count(&self) -> usize {
+        let world = self.inner.inner.read();
+        let ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
+        let size = unsafe { lib::lilv_plugins_size(ptr) };
+        size as usize
     }
 
     /// Find nodes matching a triple pattern. Either subject or object may be `None`, but not both.

@@ -15,13 +15,12 @@ fn main() {
     };
 
     let plugins = world
-        .all_plugins()
-        .iter()
+        .plugins()
         .filter(lilv::Plugin::verify)
         .map(print)
         .collect::<Vec<_>>();
 
-    debug_assert_eq!(world.all_plugins().size(), plugins.len());
+    debug_assert_eq!(world.plugins_count(), plugins.len());
 
     for uri in plugins {
         println!("{}", uri);
