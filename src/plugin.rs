@@ -3,7 +3,7 @@ use crate::node::Node;
 use crate::nodes::Nodes;
 use crate::plugin_class::PluginClass;
 use crate::port::Port;
-use crate::uis::UIs;
+use crate::uis::Uis;
 use crate::world::InnerWorld;
 use lilv_sys as lib;
 use parking_lot::RwLock;
@@ -52,10 +52,10 @@ impl Plugin {
     pub fn data_uris(&self) -> Nodes {
         let plugin = self.inner.read().as_ptr();
 
-        Nodes::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_plugin_get_data_uris(plugin) as _ }).unwrap(),
-            self.world.clone(),
-        )
+        Nodes {
+            inner: NonNull::new(unsafe { lib::lilv_plugin_get_data_uris(plugin) as _ }).unwrap(),
+            world: self.world.clone(),
+        }
     }
 
     /// The uri for the library.
@@ -94,10 +94,10 @@ impl Plugin {
         let plugin = self.inner.read().as_ptr();
         let predicate = predicate.inner.read().as_ptr();
 
-        Some(Nodes::new(
-            NonNull::new(unsafe { lib::lilv_plugin_get_value(plugin, predicate) })?,
-            self.world.clone(),
-        ))
+        Some(Nodes {
+            inner: NonNull::new(unsafe { lib::lilv_plugin_get_value(plugin, predicate) })?,
+            world: self.world.clone(),
+        })
     }
 
     /// `true` if the plugin supports the feature.
@@ -312,13 +312,14 @@ impl Plugin {
         ))
     }
 
-    pub fn uis(&self) -> Option<UIs> {
+    pub fn uis(&self) -> Option<Uis<'_>> {
         let plugin = self.inner.read().as_ptr();
 
-        Some(UIs::new(
-            NonNull::new(unsafe { lib::lilv_plugin_get_uis(plugin) })?,
-            self,
-        ))
+        Some(Uis {
+            inner: NonNull::new(unsafe { lib::lilv_plugin_get_uis(plugin) })?,
+            _world: self.world.clone(),
+            plugin: self,
+        })
     }
 
     pub unsafe fn instantiate(

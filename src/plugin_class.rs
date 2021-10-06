@@ -51,10 +51,9 @@ impl PluginClass {
 
     pub fn children(&self) -> PluginClasses {
         let inner = self.inner.read().as_ptr();
-
-        PluginClasses::new(
-            NonNull::new(unsafe { lib::lilv_plugin_class_get_children(inner) }).unwrap(),
-            self.world.clone(),
-        )
+        PluginClasses {
+            inner: NonNull::new(unsafe { lib::lilv_plugin_class_get_children(inner) }).unwrap(),
+            owner: self.world.clone(),
+        }
     }
 }

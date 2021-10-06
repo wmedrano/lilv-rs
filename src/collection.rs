@@ -28,15 +28,6 @@ where
         }
     }
 
-    pub(crate) fn new_borrowed(ptr: NonNull<I>, owner: O) -> Self {
-        Self {
-            inner: RwLock::new(ptr),
-            borrowed: true,
-            owner,
-            _phantom: PhantomData,
-        }
-    }
-
     pub fn iter(&'a self) -> Iter<'a, Self> {
         Iter::new(self)
     }

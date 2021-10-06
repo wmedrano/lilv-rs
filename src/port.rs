@@ -108,7 +108,7 @@ impl<'a> Port<'a> {
         let plugin = self.plugin.inner.read().as_ptr();
         let port = self.inner.read().as_ptr();
 
-        Nodes::new_borrowed(
+        Nodes::new(
             NonNull::new(unsafe { lib::lilv_port_get_classes(plugin, port) as _ }).unwrap(),
             self.plugin.world.clone(),
         )
