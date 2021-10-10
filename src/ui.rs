@@ -2,25 +2,17 @@ use crate::node::Node;
 use crate::nodes::Nodes;
 use crate::plugin::Plugin;
 use lilv_sys as lib;
-use parking_lot::RwLock;
 use std::ffi::CStr;
 use std::ptr::NonNull;
 
 pub struct UI<'a> {
-    pub(crate) inner: RwLock<NonNull<lib::LilvUI>>,
+    pub(crate) inner: NonNull<lib::LilvUI>,
     pub(crate) plugin: &'a Plugin,
 }
 
 impl<'a> UI<'a> {
-    pub(crate) fn new_borrowed(ptr: NonNull<lib::LilvUI>, plugin: &'a Plugin) -> Self {
-        Self {
-            inner: RwLock::new(ptr),
-            plugin,
-        }
-    }
-
     pub fn uri(&self) -> Node {
-        let ui = self.inner.read().as_ptr();
+        let ui = self.inner.as_ptr();
 
         Node::new_borrowed(
             NonNull::new(unsafe { lib::lilv_ui_get_uri(ui) as _ }).unwrap(),
@@ -29,16 +21,16 @@ impl<'a> UI<'a> {
     }
 
     pub fn classes(&self) -> Nodes {
-        let ui = self.inner.read().as_ptr();
+        let ui = self.inner.as_ptr();
 
-        Nodes::new_borrowed(
+        Nodes::new(
             NonNull::new(unsafe { lib::lilv_ui_get_classes(ui) as _ }).unwrap(),
             self.plugin.world.clone(),
         )
     }
 
     pub fn is_a(&self, class_uri: &Node) -> bool {
-        let ui = self.inner.read().as_ptr();
+        let ui = self.inner.as_ptr();
         let class_uri = class_uri.inner.read().as_ptr();
 
         unsafe { lib::lilv_ui_is_a(ui, class_uri) }
@@ -52,7 +44,7 @@ impl<'a> UI<'a> {
     where
         S: UISupport,
     {
-        let ui = self.inner.read().as_ptr();
+        let ui = self.inner.as_ptr();
         let container_type = container_type.inner.read().as_ptr();
 
         let mut ui_type_ptr = std::ptr::null();
@@ -80,7 +72,7 @@ impl<'a> UI<'a> {
     }
 
     pub fn bundle_uri(&self) -> Node {
-        let ui = self.inner.read().as_ptr();
+        let ui = self.inner.as_ptr();
 
         Node::new_borrowed(
             NonNull::new(unsafe { lib::lilv_ui_get_bundle_uri(ui) as _ }).unwrap(),
@@ -89,7 +81,7 @@ impl<'a> UI<'a> {
     }
 
     pub fn binary_uri(&self) -> Node {
-        let ui = self.inner.read().as_ptr();
+        let ui = self.inner.as_ptr();
 
         Node::new_borrowed(
             NonNull::new(unsafe { lib::lilv_ui_get_binary_uri(ui) as _ }).unwrap(),
@@ -110,8 +102,8 @@ unsafe extern "C" fn supported_func<S: UISupport>(
     ui_type_uri: *const i8,
 ) -> u32 {
     S::supported(
-        &CStr::from_ptr(container_type_uri).to_str().unwrap(),
-        &CStr::from_ptr(ui_type_uri).to_str().unwrap(),
+        CStr::from_ptr(container_type_uri).to_str().unwrap(),
+        CStr::from_ptr(ui_type_uri).to_str().unwrap(),
     )
     .0
 }

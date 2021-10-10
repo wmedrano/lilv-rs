@@ -1,5 +1,3 @@
-use lilv;
-
 fn main() {
     let world = lilv::World::new();
     world.load_all();

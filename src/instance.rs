@@ -66,7 +66,7 @@ impl InstanceImpl {
 
     #[inline(always)]
     pub fn descriptor(&self) -> &LV2Descriptor {
-        unsafe { std::mem::transmute(self.descriptor) }
+        unsafe { &*self.descriptor }
     }
 
     #[inline(always)]
@@ -81,6 +81,8 @@ impl Instance {
         unsafe { self.inner.as_ref().uri() }
     }
 
+    /// # Safety
+    /// Connecting a port calls a plugin's code, which itself may be unsafe.
     #[inline(always)]
     pub unsafe fn connect_port<T>(&mut self, port_index: usize, data: &mut T) {
         self.inner.as_mut().connect_port(port_index, data)
@@ -101,6 +103,8 @@ impl Instance {
         unsafe { self.inner.as_mut().deactivate() }
     }
 
+    /// # Safety
+    /// Gathering extension data call's a plugins code, which itself may be unsafe.
     #[inline(always)]
     pub unsafe fn extension_data<T>(&self, uri: &str) -> Option<NonNull<T>> {
         self.inner.as_ref().extension_data(uri)

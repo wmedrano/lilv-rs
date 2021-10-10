@@ -1,5 +1,3 @@
-use lilv;
-
 struct Nodes {
     control_class: lilv::Node,
     event_class: lilv::Node,
@@ -231,13 +229,15 @@ fn print_plugin(world: &lilv::World, p: &lilv::Plugin, nodes: &Nodes) {
     let mut mins = vec![0.0; num_ports];
     let mut maxes = vec![0.0; num_ports];
     let mut defaults = vec![0.0; num_ports];
-    if let Ok(_) = p.port_ranges_float(
+    if p.port_ranges_float(
         mins.as_mut_slice(),
         maxes.as_mut_slice(),
         defaults.as_mut_slice(),
-    ) {
+    )
+    .is_ok()
+    {
         for i in 0..num_ports {
-            print_port(&p, i, &mins, &maxes, &defaults, &nodes);
+            print_port(p, i, &mins, &maxes, &defaults, nodes);
         }
     }
 }

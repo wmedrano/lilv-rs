@@ -1,4 +1,3 @@
-mod collection;
 mod instance;
 mod node;
 mod nodes;
@@ -14,7 +13,6 @@ mod ui;
 mod uis;
 mod world;
 
-pub use collection::*;
 pub use instance::*;
 pub use node::*;
 pub use nodes::*;
