@@ -236,13 +236,10 @@ impl World {
             let uri_ptr = uri.inner.read().as_ptr();
             unsafe { lib::lilv_plugins_get_by_uri(plugins_ptr, uri_ptr) }
         } as _;
-        match NonNull::new(plugin_ptr) {
-            Some(ptr) => Some(Plugin {
-                world: self.inner.clone(),
-                inner: RwLock::new(ptr),
-            }),
-            None => None,
-        }
+        Some(Plugin {
+            world: self.inner.clone(),
+            inner: RwLock::new(NonNull::new(plugin_ptr)?),
+        })
     }
 
     /// The number of plugins loaded.

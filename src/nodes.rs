@@ -39,7 +39,7 @@ impl Nodes {
         NodesIter {
             inner: unsafe { lib::lilv_nodes_begin(self.inner.as_ptr()) },
             world: self.world.clone(),
-            nodes: &self,
+            nodes: self,
         }
     }
 }

@@ -201,7 +201,7 @@ impl Plugin {
     pub fn num_ports_of_class(&self, classes: &[&Node]) -> usize {
         (0..self.num_ports())
             .filter_map(|index| self.port_by_index(index))
-            .map(|port| classes.iter().all(|cls| port.is_a(cls)))
+            .filter(|port| classes.iter().all(|cls| port.is_a(cls)))
             .count()
     }
 
@@ -322,6 +322,9 @@ impl Plugin {
         })
     }
 
+    /// # Safety
+    /// Instantiating a plugin calls the plugin's code which itself may be
+    /// unsafe.
     pub unsafe fn instantiate(
         &self,
         sample_rate: f64,

@@ -177,12 +177,12 @@ impl<'a> Port<'a> {
     }
 
     pub fn scale_points(&self) -> Option<ScalePoints> {
-        let plugin = self.plugin.inner.read().as_ptr();
-        let port = self.inner.read().as_ptr();
+        let plugin = self.plugin.inner.read().as_ptr() as *const _;
+        let port = self.inner.read().as_ptr() as *const _;
 
-        Some(ScalePoints::new(
-            NonNull::new(unsafe { lib::lilv_port_get_scale_points(plugin, port) })?,
-            self,
-        ))
+        Some(ScalePoints {
+            inner: NonNull::new(unsafe { lib::lilv_port_get_scale_points(plugin, port) })?,
+            port: self,
+        })
     }
 }

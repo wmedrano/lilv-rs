@@ -29,7 +29,7 @@ impl<'a> Uis<'a> {
 
     pub fn iter(&self) -> UiIter<'_> {
         UiIter {
-            uis: &self,
+            uis: self,
             iter: unsafe { lib::lilv_uis_begin(self.inner.as_ptr()) as _ },
         }
     }
@@ -49,7 +49,7 @@ impl<'a> Iterator for UiIter<'a> {
         match NonNull::new(next) {
             Some(inner) => Some(UI {
                 inner,
-                plugin: &self.uis.plugin,
+                plugin: self.uis.plugin,
             }),
             None => None,
         }

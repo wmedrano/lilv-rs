@@ -102,8 +102,8 @@ unsafe extern "C" fn supported_func<S: UISupport>(
     ui_type_uri: *const i8,
 ) -> u32 {
     S::supported(
-        &CStr::from_ptr(container_type_uri).to_str().unwrap(),
-        &CStr::from_ptr(ui_type_uri).to_str().unwrap(),
+        CStr::from_ptr(container_type_uri).to_str().unwrap(),
+        CStr::from_ptr(ui_type_uri).to_str().unwrap(),
     )
     .0
 }
