@@ -34,12 +34,12 @@ impl<'a> Iterator for ScalePointsIter<'a> {
         let next_ptr =
             unsafe { lib::lilv_scale_points_get(self.inner.inner.as_ptr() as _, self.iter as _) }
                 as *mut _;
-        match NonNull::new(next_ptr) {
-            Some(ptr) => Some(ScalePoint {
-                inner: ptr,
-                port: self.inner.port,
-            }),
-            None => None,
-        }
+        let next = Some(ScalePoint {
+            inner: NonNull::new(next_ptr)?,
+            port: self.inner.port,
+        });
+        self.iter =
+            unsafe { lib::lilv_scale_points_next(self.inner.inner.as_ptr() as _, self.iter) };
+        next
     }
 }

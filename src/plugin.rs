@@ -13,6 +13,17 @@ use std::sync::Arc;
 unsafe impl Send for Plugin {}
 unsafe impl Sync for Plugin {}
 
+/// Describes the ports of a plugin.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct PortRanges {
+    /// The minimum value of the port.
+    pub min: f32,
+    /// The maximum value of the port.
+    pub max: f32,
+    /// The default value of the port.
+    pub default: f32,
+}
+
 /// Can be used to instantiave LV2 plugins.
 pub struct Plugin {
     pub(crate) inner: RwLock<NonNull<lib::LilvPlugin>>,
@@ -160,42 +171,29 @@ impl Plugin {
         unsafe { lib::lilv_plugin_get_num_ports(plugin) as _ }
     }
 
-    pub fn port_ranges_float<'a, Min, Max, Def>(
-        &self,
-        min_values: Min,
-        max_values: Max,
-        def_values: Def,
-    ) -> Result<(), ()>
-    where
-        Min: Into<Option<&'a mut [f32]>>,
-        Max: Into<Option<&'a mut [f32]>>,
-        Def: Into<Option<&'a mut [f32]>>,
-    {
-        let min_values = min_values.into();
-        let max_values = max_values.into();
-        let def_values = def_values.into();
-
-        let (equal_sizes, size) = match (&min_values, &max_values, &def_values) {
-            (Some(a), Some(b), None) => (a.len() == b.len(), a.len()),
-            (Some(a), None, Some(b)) => (a.len() == b.len(), a.len()),
-            (None, Some(a), Some(b)) => (a.len() == b.len(), a.len()),
-            (Some(a), Some(b), Some(c)) => (a.len() == b.len() && b.len() == c.len(), a.len()),
-            _ => (true, self.num_ports()),
-        };
-
-        if !equal_sizes || size != self.num_ports() {
-            return Err(());
-        }
-
-        let min_ptr = min_values.map_or(std::ptr::null_mut(), |x| x.as_mut_ptr());
-        let max_ptr = max_values.map_or(std::ptr::null_mut(), |x| x.as_mut_ptr());
-        let def_ptr = def_values.map_or(std::ptr::null_mut(), |x| x.as_mut_ptr());
-
+    /// Return the ranges for all ports.
+    pub fn port_ranges_float(&self) -> Vec<PortRanges> {
+        let ports_count = self.num_ports();
+        let mut min = vec![0f32; ports_count];
+        let mut max = vec![0f32; ports_count];
+        let mut default = vec![0f32; ports_count];
         let plugin = self.inner.read().as_ptr();
 
-        unsafe { lib::lilv_plugin_get_port_ranges_float(plugin, min_ptr, max_ptr, def_ptr) };
-
-        Ok(())
+        unsafe {
+            lib::lilv_plugin_get_port_ranges_float(
+                plugin,
+                min.as_mut_ptr(),
+                max.as_mut_ptr(),
+                default.as_mut_ptr(),
+            )
+        };
+        (0..ports_count)
+            .map(|i| PortRanges {
+                min: min[i],
+                max: max[i],
+                default: default[i],
+            })
+            .collect()
     }
 
     pub fn num_ports_of_class(&self, classes: &[&Node]) -> usize {

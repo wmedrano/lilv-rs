@@ -180,13 +180,13 @@ impl World {
     ///
     /// # Return
     /// The number of files parsed.
-    pub fn load_resource(&self, resource: &Node) -> Result<usize, ()> {
+    pub fn load_resource(&self, resource: &Node) -> Option<usize> {
         let world = self.inner.inner.write().as_ptr();
         let resource = resource.inner.read().as_ptr();
 
         match unsafe { lib::lilv_world_load_resource(world, resource) } {
-            -1 => Err(()),
-            n => Ok(n as _),
+            -1 => None,
+            n => Some(n as _),
         }
     }
 

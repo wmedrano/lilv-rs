@@ -1,3 +1,5 @@
+use lilv::PortRanges;
+
 struct Nodes {
     control_class: lilv::Node,
     event_class: lilv::Node,
@@ -8,14 +10,7 @@ struct Nodes {
     supports_event_pred: lilv::Node,
 }
 
-fn print_port(
-    p: &lilv::Plugin,
-    index: usize,
-    mins: &[f32],
-    maxes: &[f32],
-    defaults: &[f32],
-    nodes: &Nodes,
-) {
+fn print_port(p: &lilv::Plugin, index: usize, port_ranges: &PortRanges, nodes: &Nodes) {
     let port = p.port_by_index(index);
 
     println!("\n\tPort {}:", index);
@@ -78,7 +73,7 @@ fn print_port(
     }
 
     if port.is_a(&nodes.control_class) {
-        let (min, max, def) = (mins[index], maxes[index], defaults[index]);
+        let (min, max, def) = (port_ranges.min, port_ranges.max, port_ranges.default);
 
         if !min.is_nan() {
             println!("\t\tMinimum:     {}", min);
@@ -210,7 +205,7 @@ fn print_plugin(world: &lilv::World, p: &lilv::Plugin, nodes: &Nodes) {
             println!("\tPresets: ");
 
             for preset in presets.iter() {
-                world.load_resource(&preset).ok();
+                world.load_resource(&preset).unwrap();
 
                 if let Some(titles) = world.find_nodes(Some(&preset), &nodes.label_pred, None) {
                     if let Some(title) = titles.iter().next() {
@@ -226,19 +221,10 @@ fn print_plugin(world: &lilv::World, p: &lilv::Plugin, nodes: &Nodes) {
     }
 
     let num_ports = p.num_ports();
-    let mut mins = vec![0.0; num_ports];
-    let mut maxes = vec![0.0; num_ports];
-    let mut defaults = vec![0.0; num_ports];
-    if p.port_ranges_float(
-        mins.as_mut_slice(),
-        maxes.as_mut_slice(),
-        defaults.as_mut_slice(),
-    )
-    .is_ok()
-    {
-        for i in 0..num_ports {
-            print_port(p, i, &mins, &maxes, &defaults, nodes);
-        }
+    let port_ranges = p.port_ranges_float();
+    assert_eq!(num_ports, port_ranges.len());
+    for (i, pr) in port_ranges.iter().enumerate() {
+        print_port(p, i, pr, nodes);
     }
 }
 

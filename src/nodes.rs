@@ -55,9 +55,8 @@ impl<'a> Iterator for NodesIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let node = unsafe { lib::lilv_nodes_get(self.nodes.inner.as_ptr(), self.inner) } as *mut _;
-        match NonNull::new(node) {
-            Some(node) => Some(Node::new_borrowed(node, self.world.clone())),
-            None => None,
-        }
+        let next = Some(Node::new_borrowed(NonNull::new(node)?, self.world.clone()));
+        self.inner = unsafe { lib::lilv_nodes_next(self.nodes.inner.as_ptr(), self.inner) };
+        next
     }
 }

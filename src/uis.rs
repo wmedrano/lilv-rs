@@ -46,12 +46,11 @@ impl<'a> Iterator for UiIter<'a> {
     fn next(&mut self) -> Option<UI<'a>> {
         let next =
             unsafe { lib::lilv_uis_get(self.uis.inner.as_ptr(), self.iter) } as *mut lib::LilvUI;
-        match NonNull::new(next) {
-            Some(inner) => Some(UI {
-                inner,
-                plugin: self.uis.plugin,
-            }),
-            None => None,
-        }
+        let ret = Some(UI {
+            inner: NonNull::new(next)?,
+            plugin: self.uis.plugin,
+        });
+        self.iter = unsafe { lib::lilv_uis_next(self.uis.inner.as_ptr(), self.iter) };
+        ret
     }
 }
