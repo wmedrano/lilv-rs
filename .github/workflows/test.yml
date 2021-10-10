@@ -1,4 +1,4 @@
-name: test
+name: Testing
 
 on:
   push:
@@ -16,7 +16,10 @@ jobs:
     steps:
       - name: Install Dependencies
         run: sudo apt-get -y install liblilv-dev lv2-examples
-      - uses: actions/checkout@v2
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+      - name: Lint
+        run: cargo clippy --all-targets --all-features -- -D clippy::all -D clippy::pedantic
       - name: Build
         run: cargo build --verbose
       - name: Run tests
