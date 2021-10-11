@@ -4,7 +4,7 @@ use crate::nodes::Nodes;
 use crate::plugin_class::PluginClass;
 use crate::port::Port;
 use crate::uis::Uis;
-use crate::world::InnerWorld;
+use crate::world::Life;
 use lilv_sys as lib;
 use parking_lot::RwLock;
 use std::ptr::NonNull;
@@ -27,7 +27,7 @@ pub struct PortRanges {
 /// Can be used to instantiave LV2 plugins.
 pub struct Plugin {
     pub(crate) inner: RwLock<NonNull<lib::LilvPlugin>>,
-    pub(crate) world: Arc<InnerWorld>,
+    pub(crate) world: Arc<Life>,
 }
 
 impl Plugin {
@@ -174,9 +174,9 @@ impl Plugin {
     /// Return the ranges for all ports.
     pub fn port_ranges_float(&self) -> Vec<PortRanges> {
         let ports_count = self.num_ports();
-        let mut min = vec![0f32; ports_count];
-        let mut max = vec![0f32; ports_count];
-        let mut default = vec![0f32; ports_count];
+        let mut min = vec![0_f32; ports_count];
+        let mut max = vec![0_f32; ports_count];
+        let mut default = vec![0_f32; ports_count];
         let plugin = self.inner.read().as_ptr();
 
         unsafe {

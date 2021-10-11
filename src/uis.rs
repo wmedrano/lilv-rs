@@ -1,7 +1,7 @@
 use crate::node::Node;
 use crate::plugin::Plugin;
 use crate::ui::UI;
-use crate::InnerWorld;
+use crate::Life;
 use lilv_sys as lib;
 use std::ptr::NonNull;
 use std::sync::Arc;
@@ -9,14 +9,16 @@ use std::sync::Arc;
 pub struct Uis<'a> {
     pub(crate) inner: NonNull<lib::LilvUIs>,
     pub(crate) plugin: &'a Plugin,
-    pub(crate) _world: Arc<InnerWorld>,
+    pub(crate) _world: Arc<Life>,
 }
 
 impl<'a> Uis<'a> {
+    #[must_use]
     pub fn size(&self) -> usize {
         unsafe { lib::lilv_uis_size(self.inner.as_ptr()) as _ }
     }
 
+    #[must_use]
     pub fn get_by_uri(&self, uri: &Node) -> Option<UI> {
         let inner = self.inner.as_ptr();
         let uri = uri.inner.read().as_ptr();
@@ -27,10 +29,11 @@ impl<'a> Uis<'a> {
         })
     }
 
+    #[must_use]
     pub fn iter(&self) -> UiIter<'_> {
         UiIter {
             uis: self,
-            iter: unsafe { lib::lilv_uis_begin(self.inner.as_ptr()) as _ },
+            iter: unsafe { lib::lilv_uis_begin(self.inner.as_ptr()).cast() },
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::world::InnerWorld;
+use crate::world::Life;
 use lilv_sys as lib;
 use parking_lot::RwLock;
 use std::ffi::CStr;
@@ -17,11 +17,11 @@ unsafe impl Sync for Node {}
 pub struct Node {
     pub(crate) inner: RwLock<NonNull<lib::LilvNodeImpl>>,
     borrowed: bool,
-    world: Arc<InnerWorld>,
+    world: Arc<Life>,
 }
 
 impl Node {
-    pub(crate) fn new(ptr: NonNull<lib::LilvNodeImpl>, world: Arc<InnerWorld>) -> Self {
+    pub(crate) fn new(ptr: NonNull<lib::LilvNodeImpl>, world: Arc<Life>) -> Self {
         Self {
             inner: RwLock::new(ptr),
             borrowed: false,
@@ -29,7 +29,7 @@ impl Node {
         }
     }
 
-    pub(crate) fn new_borrowed(ptr: NonNull<lib::LilvNodeImpl>, world: Arc<InnerWorld>) -> Self {
+    pub(crate) fn new_borrowed(ptr: NonNull<lib::LilvNodeImpl>, world: Arc<Life>) -> Self {
         Self {
             inner: RwLock::new(ptr),
             borrowed: true,

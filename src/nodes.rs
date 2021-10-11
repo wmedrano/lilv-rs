@@ -1,16 +1,16 @@
 use crate::node::Node;
-use crate::world::InnerWorld;
+use crate::world::Life;
 use lilv_sys as lib;
 use std::ptr::NonNull;
 use std::sync::Arc;
 
 pub struct Nodes {
     pub(crate) inner: NonNull<lib::LilvNodes>,
-    pub(crate) world: Arc<InnerWorld>,
+    pub(crate) world: Arc<Life>,
 }
 
 impl Nodes {
-    pub(crate) fn new(inner: NonNull<lib::LilvNodes>, world: Arc<InnerWorld>) -> Self {
+    pub(crate) fn new(inner: NonNull<lib::LilvNodes>, world: Arc<Life>) -> Self {
         Self { inner, world }
     }
 
@@ -46,7 +46,7 @@ impl Nodes {
 
 pub struct NodesIter<'a> {
     inner: *mut lib::LilvIter,
-    world: Arc<InnerWorld>,
+    world: Arc<Life>,
     nodes: &'a Nodes,
 }
 

@@ -1,6 +1,6 @@
 use crate::node::Node;
 use crate::plugin_classes::PluginClasses;
-use crate::world::InnerWorld;
+use crate::world::Life;
 use lilv_sys as lib;
 use parking_lot::RwLock;
 use std::ptr::NonNull;
@@ -11,11 +11,11 @@ unsafe impl Sync for PluginClass {}
 
 pub struct PluginClass {
     pub(crate) inner: RwLock<NonNull<lib::LilvPluginClass>>,
-    world: Arc<InnerWorld>,
+    world: Arc<Life>,
 }
 
 impl PluginClass {
-    pub(crate) fn new_borrowed(ptr: NonNull<lib::LilvPluginClass>, world: Arc<InnerWorld>) -> Self {
+    pub(crate) fn new_borrowed(ptr: NonNull<lib::LilvPluginClass>, world: Arc<Life>) -> Self {
         Self {
             inner: RwLock::new(ptr),
             world,

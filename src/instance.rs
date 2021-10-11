@@ -18,26 +18,23 @@ pub struct Instance {
 unsafe impl Send for Instance {}
 
 impl InstanceImpl {
-    #[inline(always)]
     pub fn uri(&self) -> Option<&str> {
         unsafe { CStr::from_ptr((*self.descriptor).uri).to_str().ok() }
     }
 
-    #[inline(always)]
     pub unsafe fn connect_port<T>(&mut self, port_index: usize, data: &mut T) {
-        if port_index < std::u32::MAX as _ {
-            ((*self.descriptor).connect_port)(self.handle, port_index as _, data as *mut _ as _)
+        if port_index >= std::u32::MAX as _ {
+            return;
         }
+        ((*self.descriptor).connect_port)(self.handle, port_index as _, data as *mut _ as _);
     }
 
-    #[inline(always)]
     pub fn activate(&mut self) {
         if let Some(activate) = unsafe { (*self.descriptor).activate } {
-            activate(self.handle)
+            activate(self.handle);
         }
     }
 
-    #[inline(always)]
     pub fn run(&mut self, sample_count: usize) {
         let run = unsafe { (*self.descriptor).run };
         let mut sc = sample_count;
@@ -49,14 +46,12 @@ impl InstanceImpl {
         }
     }
 
-    #[inline(always)]
     pub fn deactivate(&mut self) {
         if let Some(deactivate) = unsafe { (*self.descriptor).deactivate } {
-            deactivate(self.handle)
+            deactivate(self.handle);
         }
     }
 
-    #[inline(always)]
     pub unsafe fn extension_data<T>(&self, uri: &str) -> Option<NonNull<T>> {
         let uri_c = crate::make_c_string(uri);
         let uri = crate::choose_string(uri, &uri_c);
@@ -64,58 +59,48 @@ impl InstanceImpl {
         NonNull::new((self.descriptor().extension_data)(uri as _) as _)
     }
 
-    #[inline(always)]
     pub fn descriptor(&self) -> &LV2Descriptor {
         unsafe { &*self.descriptor }
     }
 
-    #[inline(always)]
     pub fn handle(&self) -> LV2Handle {
         self.handle
     }
 }
 
 impl Instance {
-    #[inline(always)]
     pub fn uri(&self) -> Option<&str> {
         unsafe { self.inner.as_ref().uri() }
     }
 
     /// # Safety
     /// Connecting a port calls a plugin's code, which itself may be unsafe.
-    #[inline(always)]
     pub unsafe fn connect_port<T>(&mut self, port_index: usize, data: &mut T) {
         self.inner.as_mut().connect_port(port_index, data)
     }
 
-    #[inline(always)]
     pub fn activate(&mut self) {
         unsafe { self.inner.as_mut().activate() }
     }
 
-    #[inline(always)]
     pub fn run(&mut self, sample_count: usize) {
         unsafe { self.inner.as_mut().run(sample_count) }
     }
 
-    #[inline(always)]
     pub fn deactivate(&mut self) {
         unsafe { self.inner.as_mut().deactivate() }
     }
 
     /// # Safety
     /// Gathering extension data call's a plugins code, which itself may be unsafe.
-    #[inline(always)]
     pub unsafe fn extension_data<T>(&self, uri: &str) -> Option<NonNull<T>> {
         self.inner.as_ref().extension_data(uri)
     }
 
-    #[inline(always)]
     pub fn descriptor(&self) -> &LV2Descriptor {
         unsafe { self.inner.as_ref().descriptor() }
     }
 
-    #[inline(always)]
     pub fn handle(&self) -> LV2Handle {
         unsafe { self.inner.as_ref().handle() }
     }

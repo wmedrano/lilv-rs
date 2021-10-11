@@ -1,13 +1,13 @@
 use crate::node::Node;
 use crate::plugin_class::PluginClass;
-use crate::world::InnerWorld;
+use crate::world::Life;
 use lilv_sys as lib;
 use std::ptr::NonNull;
 use std::sync::Arc;
 
 pub struct PluginClasses {
     pub(crate) inner: NonNull<lib::LilvPluginClasses>,
-    pub(crate) owner: Arc<InnerWorld>,
+    pub(crate) owner: Arc<Life>,
 }
 
 impl PluginClasses {
@@ -37,7 +37,7 @@ impl PluginClasses {
 pub struct PluginClassesIter {
     classes: *mut lib::LilvPluginClasses,
     iter: *mut lib::LilvIter,
-    owner: Arc<InnerWorld>,
+    owner: Arc<Life>,
 }
 
 impl Iterator for PluginClassesIter {
