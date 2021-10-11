@@ -1,7 +1,6 @@
-use crate::node::Node;
-use crate::nodes::Nodes;
+use crate::node::{Node, Nodes};
+use crate::plugin::PluginsIter;
 use crate::plugin_class::PluginClass;
-use crate::plugins::PluginsIter;
 use crate::Plugin;
 use lilv_sys as lib;
 use parking_lot::RwLock;

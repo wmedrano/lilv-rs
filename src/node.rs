@@ -46,7 +46,7 @@ impl Node {
             let rusty = CStr::from_ptr(lib::lilv_node_get_turtle_token(self.inner.read().as_ptr()))
                 .to_string_lossy()
                 .into_owned();
-            lib::lilv_free(original as _);
+            lib::lilv_free(original.cast());
             rusty
         }
     }
@@ -112,8 +112,8 @@ impl Node {
             let rusty_path = CStr::from_ptr(path.as_ptr()).to_string_lossy().into_owned();
             let rusty_hostname = CStr::from_ptr(hostname).to_string_lossy().into_owned();
 
-            serd_free(path.as_ptr() as _);
-            serd_free(hostname as _);
+            serd_free(path.as_ptr().cast());
+            serd_free(hostname.cast());
 
             Some((rusty_path, rusty_hostname))
         }
@@ -180,5 +180,69 @@ impl Drop for Node {
         if !self.borrowed {
             unsafe { lib::lilv_node_free(self.inner.write().as_ptr()) }
         }
+    }
+}
+
+pub struct Nodes {
+    pub(crate) inner: NonNull<lib::LilvNodes>,
+    pub(crate) world: Arc<Life>,
+}
+
+impl Nodes {
+    #[must_use]
+    pub(crate) fn new(inner: NonNull<lib::LilvNodes>, world: Arc<Life>) -> Self {
+        Self { inner, world }
+    }
+
+    #[must_use]
+    pub fn size(&self) -> usize {
+        unsafe { lib::lilv_nodes_size(self.inner.as_ptr()) as _ }
+    }
+
+    #[must_use]
+    pub fn contains(&self, value: &Node) -> bool {
+        let inner = self.inner.as_ptr();
+        let value = value.inner.read().as_ptr();
+
+        unsafe { lib::lilv_nodes_contains(inner, value) }
+    }
+
+    /// # Panics
+    /// Panics if the merge is unsuccessful.
+    #[must_use]
+    pub fn merge(&self, other: &Self) -> Self {
+        let a = self.inner.as_ptr();
+        let b = other.inner.as_ptr();
+
+        Nodes {
+            inner: NonNull::new(unsafe { lib::lilv_nodes_merge(a, b) }).unwrap(),
+            world: self.world.clone(),
+        }
+    }
+
+    #[must_use]
+    pub fn iter(&self) -> NodesIter<'_> {
+        NodesIter {
+            inner: unsafe { lib::lilv_nodes_begin(self.inner.as_ptr()) },
+            world: self.world.clone(),
+            nodes: self,
+        }
+    }
+}
+
+pub struct NodesIter<'a> {
+    inner: *mut lib::LilvIter,
+    world: Arc<Life>,
+    nodes: &'a Nodes,
+}
+
+impl<'a> Iterator for NodesIter<'a> {
+    type Item = Node;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let node = unsafe { lib::lilv_nodes_get(self.nodes.inner.as_ptr(), self.inner) } as *mut _;
+        let next = Some(Node::new_borrowed(NonNull::new(node)?, self.world.clone()));
+        self.inner = unsafe { lib::lilv_nodes_next(self.nodes.inner.as_ptr(), self.inner) };
+        next
     }
 }
