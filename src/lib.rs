@@ -30,20 +30,20 @@ pub use world::*;
 
 pub(crate) fn make_c_string(value: &str) -> Option<String> {
     let bytes = value.as_bytes();
-    if bytes[bytes.len() - 1] != 0 {
-        Some(format!("{}\0", value))
-    } else {
+    if bytes[bytes.len() - 1] == 0 {
         None
+    } else {
+        Some(format!("{}\0", value))
     }
 }
 
 pub(crate) fn choose_string<'a>(a: &'a str, b: &'a Option<String>) -> *const i8 {
-    b.as_ref().map(String::as_str).unwrap_or(a).as_ptr() as _
+    b.as_ref().map_or(a, String::as_str).as_ptr().cast::<i8>()
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use super::*;
 
     #[test]
     fn it_works() {

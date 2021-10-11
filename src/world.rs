@@ -8,25 +8,29 @@ use parking_lot::RwLock;
 use std::ptr::NonNull;
 use std::sync::Arc;
 
-unsafe impl Send for InnerWorld {}
-unsafe impl Sync for InnerWorld {}
+unsafe impl Send for Life {}
+unsafe impl Sync for Life {}
 
 /// The world represents all Lilv state. It is used to discover/load/cache LV2
 /// data (plugins, UIs, and extensions).
 pub struct World {
-    inner: Arc<InnerWorld>,
+    inner: Arc<Life>,
 }
 
 #[doc(hidden)]
-pub struct InnerWorld {
+pub struct Life {
     pub(crate) inner: RwLock<NonNull<lib::LilvWorldImpl>>,
 }
 
 impl World {
     /// Initializes a new, empty world.
+    ///
+    /// # Panics
+    /// Panics if the world could not be created.
+    #[must_use]
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(InnerWorld {
+            inner: Arc::new(Life {
                 inner: RwLock::new(NonNull::new(unsafe { lib::lilv_world_new() }).unwrap()),
             }),
         }
@@ -43,6 +47,10 @@ impl World {
     }
 
     /// Creates a new URI value.
+    ///
+    /// # Panics
+    /// Panics on failure.
+    #[must_use]
     pub fn new_uri(&self, uri: &str) -> Node {
         let world = self.inner.inner.write().as_ptr();
         let uri_c = crate::make_c_string(uri);
@@ -55,29 +63,32 @@ impl World {
     }
 
     /// Creates a new file URI value.
+    ///
+    /// # Panics
+    /// Panics on failure.
+    #[must_use]
     pub fn new_file_uri(&self, host: Option<&str>, path: &str) -> Node {
         let world = self.inner.inner.write().as_ptr();
 
-        let host_c;
-        let host = if let Some(host) = host {
-            host_c = crate::make_c_string(host);
-            crate::choose_string(host, &host_c)
-        } else {
-            host_c = None;
-            let _ = &host_c;
-            std::ptr::null()
-        };
+        let host = host
+            .iter()
+            .find_map(|h| std::ffi::CString::new(h.as_bytes()).ok());
+        let path = std::ffi::CString::new(path.as_bytes()).unwrap();
 
-        let path_c = crate::make_c_string(path);
-        let path = crate::choose_string(path, &path_c);
+        let host_ptr = host.map_or(std::ptr::null(), |h| h.as_ptr());
+        let path_ptr = path.as_ptr();
 
         Node::new(
-            NonNull::new(unsafe { lib::lilv_new_file_uri(world, host, path) }).unwrap(),
+            NonNull::new(unsafe { lib::lilv_new_file_uri(world, host_ptr, path_ptr) }).unwrap(),
             self.inner.clone(),
         )
     }
 
     /// Creates a new string value (with no language).
+    ///
+    /// # Panics
+    /// Panics on failure.
+    #[must_use]
     pub fn new_string(&self, string: &str) -> Node {
         let world = self.inner.inner.write().as_ptr();
         let string_c = crate::make_c_string(string);
@@ -90,6 +101,10 @@ impl World {
     }
 
     /// Creates a new integer value.
+    ///
+    /// # Panics
+    /// Panics on failure.
+    #[must_use]
     pub fn new_int(&self, value: i32) -> Node {
         let world = self.inner.inner.write().as_ptr();
 
@@ -100,6 +115,10 @@ impl World {
     }
 
     /// Creates a new floating point value.
+    ///
+    /// # Panics
+    /// Panics on failure.
+    #[must_use]
     pub fn new_float(&self, value: f32) -> Node {
         let world = self.inner.inner.write().as_ptr();
 
@@ -110,6 +129,10 @@ impl World {
     }
 
     /// Creates a new boolean value.
+    ///
+    /// # Panics
+    /// Panics on failure.
+    #[must_use]
     pub fn new_bool(&self, value: bool) -> Node {
         let world = self.inner.inner.write().as_ptr();
 
@@ -180,13 +203,14 @@ impl World {
     ///
     /// # Return
     /// The number of files parsed.
+    #[allow(clippy::cast_sign_loss)]
     pub fn load_resource(&self, resource: &Node) -> Option<usize> {
         let world = self.inner.inner.write().as_ptr();
         let resource = resource.inner.read().as_ptr();
 
         match unsafe { lib::lilv_world_load_resource(world, resource) } {
             -1 => None,
-            n => Some(n as _),
+            n => Some(n as usize),
         }
     }
 
@@ -203,16 +227,18 @@ impl World {
     }
 
     /// Get the parent of all other plugin classes, lv2:Plugin.
-    pub fn plugin_class(&self) -> PluginClass {
+    #[must_use]
+    pub fn plugin_class(&self) -> Option<PluginClass> {
         let world = self.inner.inner.read().as_ptr();
 
-        PluginClass::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_world_get_plugin_class(world) as _ }).unwrap(),
+        Some(PluginClass::new_borrowed(
+            NonNull::new(unsafe { lib::lilv_world_get_plugin_class(world) as _ })?,
             self.inner.clone(),
-        )
+        ))
     }
 
     /// An iterable over all the plugins in the world.
+    #[must_use]
     pub fn plugins(&self) -> PluginsIter {
         let (ptr, iter) = {
             let world = self.inner.inner.read();
@@ -243,6 +269,7 @@ impl World {
     }
 
     /// The number of plugins loaded.
+    #[must_use]
     pub fn plugins_count(&self) -> usize {
         let world = self.inner.inner.read();
         let ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
@@ -258,13 +285,9 @@ impl World {
         object: Option<&Node>,
     ) -> Option<Nodes> {
         let world = self.inner.inner.read().as_ptr();
-        let subject = subject
-            .map(|n| n.inner.read().as_ptr() as _)
-            .unwrap_or(std::ptr::null());
+        let subject = subject.map_or(std::ptr::null(), |n| n.inner.read().as_ptr() as _);
         let predicate = predicate.inner.read().as_ptr();
-        let object = object
-            .map(|n| n.inner.read().as_ptr() as _)
-            .unwrap_or(std::ptr::null());
+        let object = object.map_or(std::ptr::null(), |n| n.inner.read().as_ptr() as _);
 
         Some(Nodes::new(
             NonNull::new(unsafe { lib::lilv_world_find_nodes(world, subject, predicate, object) })?,
@@ -274,6 +297,7 @@ impl World {
 
     /// Find a single node that matches a pattern. Exactly one of `subject`, `predicate`, or
     /// `object` must be `None`.
+    #[must_use]
     pub fn get(
         &self,
         subject: Option<&Node>,
@@ -281,15 +305,9 @@ impl World {
         object: Option<&Node>,
     ) -> Option<Node> {
         let world = self.inner.inner.read().as_ptr();
-        let subject = subject
-            .map(|n| n.inner.read().as_ptr() as _)
-            .unwrap_or(std::ptr::null());
-        let predicate = predicate
-            .map(|n| n.inner.read().as_ptr() as _)
-            .unwrap_or(std::ptr::null());
-        let object = object
-            .map(|n| n.inner.read().as_ptr() as _)
-            .unwrap_or(std::ptr::null());
+        let subject = subject.map_or(std::ptr::null(), |n| n.inner.read().as_ptr() as _);
+        let predicate = predicate.map_or(std::ptr::null(), |n| n.inner.read().as_ptr() as _);
+        let object = object.map_or(std::ptr::null(), |n| n.inner.read().as_ptr() as _);
 
         Some(Node::new(
             NonNull::new(unsafe { lib::lilv_world_get(world, subject, predicate, object) })?,
@@ -298,6 +316,7 @@ impl World {
     }
 
     /// Returns true iff a statement matching a certain pattern exists.
+    #[must_use]
     pub fn ask(
         &self,
         subject: Option<&Node>,
@@ -305,15 +324,9 @@ impl World {
         object: Option<&Node>,
     ) -> bool {
         let world = self.inner.inner.read().as_ptr();
-        let subject = subject
-            .map(|n| n.inner.read().as_ptr() as _)
-            .unwrap_or(std::ptr::null());
-        let predicate = predicate
-            .map(|n| n.inner.read().as_ptr() as _)
-            .unwrap_or(std::ptr::null());
-        let object = object
-            .map(|n| n.inner.read().as_ptr() as _)
-            .unwrap_or(std::ptr::null());
+        let subject = subject.map_or(std::ptr::null(), |n| n.inner.read().as_ptr() as _);
+        let predicate = predicate.map_or(std::ptr::null(), |n| n.inner.read().as_ptr() as _);
+        let object = object.map_or(std::ptr::null(), |n| n.inner.read().as_ptr() as _);
 
         unsafe { lib::lilv_world_ask(world, subject, predicate, object) }
     }
@@ -340,7 +353,7 @@ impl Default for World {
     }
 }
 
-impl Drop for InnerWorld {
+impl Drop for Life {
     fn drop(&mut self) {
         unsafe { lib::lilv_world_free(self.inner.write().as_ptr()) }
     }

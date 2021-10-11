@@ -1,5 +1,5 @@
 use crate::plugin::Plugin;
-use crate::world::InnerWorld;
+use crate::world::Life;
 use lilv_sys as lib;
 use parking_lot::RwLock;
 use std::ptr::NonNull;
@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 /// An iterator over plugins.
 pub struct PluginsIter {
-    pub(crate) world: Arc<InnerWorld>,
+    pub(crate) world: Arc<Life>,
     pub(crate) ptr: *const lib::LilvPlugins,
     pub(crate) iter: *mut lib::LilvIter,
 }

@@ -143,12 +143,18 @@ fn print_plugin(world: &lilv::World, p: &lilv::Plugin, nodes: &Nodes) {
         for ui in uis.iter() {
             println!("\t\t{}", ui.uri().as_uri().unwrap());
 
-            for tyep in ui.classes().iter() {
+            for tyep in ui.classes().unwrap().iter() {
                 println!("\t\t\tClass:  {}", tyep.as_uri().unwrap());
             }
 
-            println!("\t\t\tBinary: {}", ui.binary_uri().as_uri().unwrap());
-            println!("\t\t\tBundle: {}", ui.bundle_uri().as_uri().unwrap());
+            println!(
+                "\t\t\tBinary: {}",
+                ui.binary_uri().unwrap().as_uri().unwrap()
+            );
+            println!(
+                "\t\t\tBundle: {}",
+                ui.bundle_uri().unwrap().as_uri().unwrap()
+            );
         }
     }
 

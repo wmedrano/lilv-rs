@@ -11,6 +11,9 @@ pub struct UI<'a> {
 }
 
 impl<'a> UI<'a> {
+    /// # Panics
+    /// Panics if it was not possible to get the URI.
+    #[must_use]
     pub fn uri(&self) -> Node {
         let ui = self.inner.as_ptr();
 
@@ -20,15 +23,17 @@ impl<'a> UI<'a> {
         )
     }
 
-    pub fn classes(&self) -> Nodes {
+    #[must_use]
+    pub fn classes(&self) -> Option<Nodes> {
         let ui = self.inner.as_ptr();
 
-        Nodes::new(
-            NonNull::new(unsafe { lib::lilv_ui_get_classes(ui) as _ }).unwrap(),
+        Some(Nodes::new(
+            NonNull::new(unsafe { lib::lilv_ui_get_classes(ui) as _ })?,
             self.plugin.world.clone(),
-        )
+        ))
     }
 
+    #[must_use]
     pub fn is_a(&self, class_uri: &Node) -> bool {
         let ui = self.inner.as_ptr();
         let class_uri = class_uri.inner.read().as_ptr();
@@ -36,6 +41,7 @@ impl<'a> UI<'a> {
         unsafe { lib::lilv_ui_is_a(ui, class_uri) }
     }
 
+    #[must_use]
     pub fn is_supported<S>(
         &self,
         container_type: &Node,
@@ -56,37 +62,40 @@ impl<'a> UI<'a> {
                 container_type,
                 ui_type
                     .as_ref()
-                    .map(|_| &mut ui_type_ptr as _)
-                    .unwrap_or(std::ptr::null_mut()),
+                    .map_or(std::ptr::null_mut(), |_| &mut ui_type_ptr as _),
             )
         });
 
         if let Some(ui_type) = ui_type {
-            *ui_type = Some(Node::new_borrowed(
-                NonNull::new(ui_type_ptr as _).unwrap(),
-                self.plugin.world.clone(),
-            ));
+            let ptr = match NonNull::new(ui_type_ptr as _) {
+                Some(ptr) => ptr,
+                None => return UISupportQuality(0),
+            };
+            *ui_type = Some(Node::new_borrowed(ptr, self.plugin.world.clone()));
         }
 
         quality
     }
 
-    pub fn bundle_uri(&self) -> Node {
+    #[must_use]
+    pub fn bundle_uri(&self) -> Option<Node> {
         let ui = self.inner.as_ptr();
 
-        Node::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_ui_get_bundle_uri(ui) as _ }).unwrap(),
+        Some(Node::new_borrowed(
+            NonNull::new(unsafe { lib::lilv_ui_get_bundle_uri(ui) as _ })?,
             self.plugin.world.clone(),
-        )
+        ))
     }
 
-    pub fn binary_uri(&self) -> Node {
+    /// Get the uri for the binary.
+    #[must_use]
+    pub fn binary_uri(&self) -> Option<Node> {
         let ui = self.inner.as_ptr();
 
-        Node::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_ui_get_binary_uri(ui) as _ }).unwrap(),
+        Some(Node::new_borrowed(
+            NonNull::new(unsafe { lib::lilv_ui_get_binary_uri(ui) as _ })?,
             self.plugin.world.clone(),
-        )
+        ))
     }
 }
 
