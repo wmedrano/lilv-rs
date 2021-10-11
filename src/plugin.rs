@@ -1,6 +1,5 @@
 use crate::instance::Instance;
-use crate::node::Node;
-use crate::nodes::Nodes;
+use crate::node::{Node, Nodes};
 use crate::plugin_class::PluginClass;
 use crate::port::Port;
 use crate::uis::Uis;
@@ -40,6 +39,8 @@ impl Plugin {
     }
 
     /// The uri of the plugin.
+    /// # Panics
+    /// Panics if the uri could not be obtained.
     pub fn uri(&self) -> Node {
         let plugin = self.inner.read().as_ptr();
 
@@ -50,6 +51,8 @@ impl Plugin {
     }
 
     /// The uri of the plugin's bundle.
+    /// # Panics
+    /// Panics if the bundle uri could not be obtained.
     pub fn bundle_uri(&self) -> Node {
         let plugin = self.inner.read().as_ptr();
 
@@ -60,6 +63,8 @@ impl Plugin {
     }
 
     /// The uri for the data.
+    /// # Panics
+    /// Panics if the `data_uris` could not be obtained.
     pub fn data_uris(&self) -> Nodes {
         let plugin = self.inner.read().as_ptr();
 
@@ -85,12 +90,14 @@ impl Plugin {
         let plugin = self.inner.read().as_ptr();
 
         Node::new(
-            NonNull::new(unsafe { lib::lilv_plugin_get_name(plugin) as _ }).unwrap(),
+            NonNull::new(unsafe { lib::lilv_plugin_get_name(plugin).cast() }).unwrap(),
             self.world.clone(),
         )
     }
 
     /// The class of the plugin.
+    /// # Panics
+    /// Panics if the pluginc class could not be found.
     pub fn class(&self) -> PluginClass {
         let plugin = self.inner.read().as_ptr();
 
@@ -185,8 +192,8 @@ impl Plugin {
                 min.as_mut_ptr(),
                 max.as_mut_ptr(),
                 default.as_mut_ptr(),
-            )
-        };
+            );
+        }
         (0..ports_count)
             .map(|i| PortRanges {
                 min: min[i],
@@ -217,6 +224,7 @@ impl Plugin {
         }
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     pub fn port_by_index(&self, index: usize) -> Option<Port> {
         let plugin = self.inner.read().as_ptr();
 
@@ -298,14 +306,12 @@ impl Plugin {
 
     // MAYBE TODO write_manifest_entry
 
-    pub fn related(&self, tyep: Option<&Node>) -> Option<Nodes> {
+    pub fn related(&self, typ: Option<&Node>) -> Option<Nodes> {
         let plugin = self.inner.read().as_ptr();
-        let tyep = tyep
-            .map(|n| n.inner.read().as_ptr() as _)
-            .unwrap_or(std::ptr::null());
+        let plugin_type = typ.map_or(std::ptr::null(), |n| n.inner.read().as_ptr() as _);
 
         Some(Nodes::new(
-            NonNull::new(unsafe { lib::lilv_plugin_get_related(plugin, tyep) })?,
+            NonNull::new(unsafe { lib::lilv_plugin_get_related(plugin, plugin_type) })?,
             self.world.clone(),
         ))
     }
@@ -331,11 +337,34 @@ impl Plugin {
         let plugin = self.inner.read().as_ptr();
 
         Some(Instance {
-            inner: NonNull::new(std::mem::transmute(lib::lilv_plugin_instantiate(
-                plugin,
-                sample_rate,
-                std::mem::transmute(features),
-            )))?,
+            inner: NonNull::new(
+                (lib::lilv_plugin_instantiate(plugin, sample_rate, std::mem::transmute(features)))
+                    .cast(),
+            )?,
         })
+    }
+}
+
+/// An iterator over plugins.
+pub struct PluginsIter {
+    pub(crate) world: Arc<Life>,
+    pub(crate) ptr: *const lib::LilvPlugins,
+    pub(crate) iter: *mut lib::LilvIter,
+}
+
+impl Iterator for PluginsIter {
+    type Item = Plugin;
+
+    fn next(&mut self) -> Option<Plugin> {
+        let ptr: *mut lib::LilvPlugin =
+            unsafe { lib::lilv_plugins_get(self.ptr, self.iter) } as *mut _;
+        self.iter = unsafe { lib::lilv_plugins_next(self.ptr, self.iter) };
+        match NonNull::new(ptr) {
+            Some(ptr) => Some(Plugin {
+                world: self.world.clone(),
+                inner: RwLock::new(ptr),
+            }),
+            None => None,
+        }
     }
 }

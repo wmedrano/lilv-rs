@@ -18,15 +18,18 @@ pub struct Instance {
 unsafe impl Send for Instance {}
 
 impl InstanceImpl {
+    #[must_use]
     pub fn uri(&self) -> Option<&str> {
         unsafe { CStr::from_ptr((*self.descriptor).uri).to_str().ok() }
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     pub unsafe fn connect_port<T>(&mut self, port_index: usize, data: &mut T) {
         if port_index >= std::u32::MAX as _ {
             return;
         }
-        ((*self.descriptor).connect_port)(self.handle, port_index as _, data as *mut _ as _);
+        let data_ptr: *mut T = data;
+        ((*self.descriptor).connect_port)(self.handle, port_index as u32, data_ptr.cast());
     }
 
     pub fn activate(&mut self) {
@@ -35,6 +38,7 @@ impl InstanceImpl {
         }
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     pub fn run(&mut self, sample_count: usize) {
         let run = unsafe { (*self.descriptor).run };
         let mut sc = sample_count;
@@ -52,23 +56,27 @@ impl InstanceImpl {
         }
     }
 
+    #[must_use]
     pub unsafe fn extension_data<T>(&self, uri: &str) -> Option<NonNull<T>> {
         let uri_c = crate::make_c_string(uri);
         let uri = crate::choose_string(uri, &uri_c);
 
-        NonNull::new((self.descriptor().extension_data)(uri as _) as _)
+        NonNull::new((self.descriptor().extension_data)(uri.cast()) as _)
     }
 
+    #[must_use]
     pub fn descriptor(&self) -> &LV2Descriptor {
         unsafe { &*self.descriptor }
     }
 
+    #[must_use]
     pub fn handle(&self) -> LV2Handle {
         self.handle
     }
 }
 
 impl Instance {
+    #[must_use]
     pub fn uri(&self) -> Option<&str> {
         unsafe { self.inner.as_ref().uri() }
     }
@@ -76,7 +84,7 @@ impl Instance {
     /// # Safety
     /// Connecting a port calls a plugin's code, which itself may be unsafe.
     pub unsafe fn connect_port<T>(&mut self, port_index: usize, data: &mut T) {
-        self.inner.as_mut().connect_port(port_index, data)
+        self.inner.as_mut().connect_port(port_index, data);
     }
 
     pub fn activate(&mut self) {
@@ -93,14 +101,17 @@ impl Instance {
 
     /// # Safety
     /// Gathering extension data call's a plugins code, which itself may be unsafe.
+    #[must_use]
     pub unsafe fn extension_data<T>(&self, uri: &str) -> Option<NonNull<T>> {
         self.inner.as_ref().extension_data(uri)
     }
 
+    #[must_use]
     pub fn descriptor(&self) -> &LV2Descriptor {
         unsafe { self.inner.as_ref().descriptor() }
     }
 
+    #[must_use]
     pub fn handle(&self) -> LV2Handle {
         unsafe { self.inner.as_ref().handle() }
     }
@@ -108,6 +119,6 @@ impl Instance {
 
 impl Drop for Instance {
     fn drop(&mut self) {
-        unsafe { lib::lilv_instance_free(self.inner.as_ptr() as _) };
+        unsafe { lib::lilv_instance_free(self.inner.as_ptr().cast()) };
     }
 }

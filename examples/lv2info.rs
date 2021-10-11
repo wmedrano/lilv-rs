@@ -24,7 +24,7 @@ fn print_port(p: &lilv::Plugin, index: usize, port_ranges: &PortRanges, nodes: &
 
     print!("\t\tType:        ");
 
-    for (i, value) in port.classes().iter().enumerate() {
+    for (i, value) in port.classes().unwrap().iter().enumerate() {
         if i != 0 {
             print!("\n\t\t             ");
         }
@@ -42,18 +42,20 @@ fn print_port(p: &lilv::Plugin, index: usize, port_ranges: &PortRanges, nodes: &
         }
     }
 
-    if let Some(points) = port.scale_points() {
-        println!("\n\t\tScale Points:");
-        for point in points.iter() {
-            println!(
-                "\t\t\t{} = \"{}\"",
-                point.value().as_str().unwrap(),
-                point.label().as_str().unwrap(),
-            );
-        }
+    let points = port.scale_points();
+    println!("\n\t\tScale Points:");
+    for point in points.iter() {
+        println!(
+            "\t\t\t{} = \"{}\"",
+            point.value().as_str().unwrap(),
+            point.label().as_str().unwrap(),
+        );
     }
 
-    println!("\n\t\tSymbol:      {}", port.symbol().as_str().unwrap(),);
+    println!(
+        "\n\t\tSymbol:      {}",
+        port.symbol().unwrap().as_str().unwrap(),
+    );
 
     println!(
         "\t\tName:        {}",
@@ -99,6 +101,7 @@ fn print_port(p: &lilv::Plugin, index: usize, port_ranges: &PortRanges, nodes: &
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn print_plugin(world: &lilv::World, p: &lilv::Plugin, nodes: &Nodes) {
     println!("{}\n", p.uri().as_uri().unwrap());
     println!("\tName:              {}", p.name().as_str().unwrap());

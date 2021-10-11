@@ -1,5 +1,4 @@
-use crate::node::Node;
-use crate::nodes::Nodes;
+use crate::node::{Node, Nodes};
 use crate::plugin::Plugin;
 use lilv_sys as lib;
 use std::ffi::CStr;

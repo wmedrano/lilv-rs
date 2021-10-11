@@ -1,5 +1,4 @@
 use crate::node::Node;
-use crate::plugin_classes::PluginClasses;
 use crate::world::Life;
 use lilv_sys as lib;
 use parking_lot::RwLock;
@@ -31,15 +30,18 @@ impl PluginClass {
         ))
     }
 
-    pub fn uri(&self) -> Node {
+    pub fn uri(&self) -> Option<Node> {
         let inner = self.inner.read().as_ptr();
 
         Node::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_plugin_class_get_uri(inner) as _ }).unwrap(),
+            NonNull::new(unsafe { lib::lilv_plugin_class_get_uri(inner) as _ })?,
             self.world.clone(),
         )
+        .into()
     }
 
+    /// # Panics
+    /// Panics if the label could not be obtained.
     pub fn label(&self) -> Node {
         let inner = self.inner.read().as_ptr();
 
@@ -49,11 +51,66 @@ impl PluginClass {
         )
     }
 
-    pub fn children(&self) -> PluginClasses {
+    pub fn children(&self) -> Option<PluginClasses> {
         let inner = self.inner.read().as_ptr();
         PluginClasses {
-            inner: NonNull::new(unsafe { lib::lilv_plugin_class_get_children(inner) }).unwrap(),
+            inner: NonNull::new(unsafe { lib::lilv_plugin_class_get_children(inner) })?,
             owner: self.world.clone(),
+        }
+        .into()
+    }
+}
+
+pub struct PluginClasses {
+    pub(crate) inner: NonNull<lib::LilvPluginClasses>,
+    pub(crate) owner: Arc<Life>,
+}
+
+impl PluginClasses {
+    #[must_use]
+    pub fn iter(&self) -> PluginClassesIter {
+        PluginClassesIter {
+            classes: self.inner.as_ptr(),
+            iter: unsafe { lib::lilv_plugin_classes_begin(self.inner.as_ptr()) },
+            owner: self.owner.clone(),
+        }
+    }
+
+    #[must_use]
+    pub fn size(&self) -> usize {
+        unsafe { lib::lilv_plugin_classes_size(self.inner.as_ptr()) as _ }
+    }
+
+    pub fn get_by_uri(&self, uri: &Node) -> Option<PluginClass> {
+        let inner = self.inner.as_ptr();
+        let uri = uri.inner.read().as_ptr();
+
+        Some(PluginClass::new_borrowed(
+            NonNull::new(unsafe { lib::lilv_plugin_classes_get_by_uri(inner, uri) as _ })?,
+            self.owner.clone(),
+        ))
+    }
+}
+
+pub struct PluginClassesIter {
+    classes: *mut lib::LilvPluginClasses,
+    iter: *mut lib::LilvIter,
+    owner: Arc<Life>,
+}
+
+impl Iterator for PluginClassesIter {
+    type Item = PluginClass;
+
+    fn next(&mut self) -> Option<PluginClass> {
+        let ptr = unsafe { lib::lilv_plugin_classes_get(self.classes, self.iter) };
+        if ptr.is_null() {
+            None
+        } else {
+            self.iter = unsafe { lib::lilv_plugin_classes_next(self.classes, self.iter) };
+            Some(PluginClass::new_borrowed(
+                NonNull::new(ptr as _)?,
+                self.owner.clone(),
+            ))
         }
     }
 }

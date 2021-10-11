@@ -1,13 +1,8 @@
 mod instance;
 mod node;
-mod nodes;
 mod plugin;
 mod plugin_class;
-mod plugin_classes;
-mod plugins;
 mod port;
-mod scale_point;
-mod scale_points;
 mod state;
 mod ui;
 mod uis;
@@ -15,14 +10,9 @@ mod world;
 
 pub use instance::*;
 pub use node::*;
-pub use nodes::*;
 pub use plugin::*;
 pub use plugin_class::*;
-pub use plugin_classes::*;
-pub use plugins::*;
 pub use port::*;
-pub use scale_point::*;
-pub use scale_points::*;
 pub use state::*;
 pub use ui::*;
 pub use uis::*;
