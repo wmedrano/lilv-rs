@@ -58,10 +58,9 @@ impl InstanceImpl {
 
     #[must_use]
     pub unsafe fn extension_data<T>(&self, uri: &str) -> Option<NonNull<T>> {
-        let uri_c = crate::make_c_string(uri);
-        let uri = crate::choose_string(uri, &uri_c);
+        let uri = std::ffi::CString::new(uri).ok()?;
 
-        NonNull::new((self.descriptor().extension_data)(uri.cast()) as _)
+        NonNull::new((self.descriptor().extension_data)(uri.as_ptr().cast()) as _)
     }
 
     #[must_use]
