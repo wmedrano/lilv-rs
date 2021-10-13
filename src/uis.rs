@@ -15,13 +15,13 @@ pub struct Uis<'a> {
 impl<'a> Uis<'a> {
     #[must_use]
     pub fn size(&self) -> usize {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         unsafe { lib::lilv_uis_size(self.inner.as_ptr()) as _ }
     }
 
     #[must_use]
     pub fn get_by_uri(&self, uri: &Node) -> Option<UI> {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         let inner = self.inner.as_ptr();
         let uri = uri.inner.as_ptr();
 
@@ -34,7 +34,7 @@ impl<'a> Uis<'a> {
 
     #[must_use]
     pub fn iter(&self) -> UiIter<'_> {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         UiIter {
             uis: self,
             iter: unsafe { lib::lilv_uis_begin(self.inner.as_ptr()).cast() },
@@ -51,7 +51,7 @@ impl<'a> Iterator for UiIter<'a> {
     type Item = UI<'a>;
 
     fn next(&mut self) -> Option<UI<'a>> {
-        let _life = self.uis.life.inner.read();
+        let _life = self.uis.life.inner.lock();
         let next =
             unsafe { lib::lilv_uis_get(self.uis.inner.as_ptr(), self.iter) } as *mut lib::LilvUI;
         let ret = Some(UI {

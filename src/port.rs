@@ -9,27 +9,28 @@ pub struct Port<'a> {
 }
 
 impl<'a> Port<'a> {
-    pub(crate) fn new_borrowed(inner: NonNull<lib::LilvPort>, plugin: &'a Plugin) -> Self {
-        Self { inner, plugin }
-    }
-
     /// # Panics
     /// Panics if the node could not be obtained.
     #[must_use]
     pub fn node(&self) -> Node {
-        let _life = self.plugin.life.inner.read();
+        let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
 
-        Node::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_port_get_node(plugin, port) as _ }).unwrap(),
-            self.plugin.life.clone(),
-        )
+        {
+            let ptr = NonNull::new(unsafe { lib::lilv_port_get_node(plugin, port) as _ }).unwrap();
+            let world = self.plugin.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: true,
+                life: world,
+            }
+        }
     }
 
     #[must_use]
     pub fn value(&self, predicate: &Node) -> Option<Nodes> {
-        let _life = self.plugin.life.inner.read();
+        let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
         let predicate = predicate.inner.as_ptr();
@@ -42,20 +43,25 @@ impl<'a> Port<'a> {
 
     #[must_use]
     pub fn get(&self, predicate: &Node) -> Option<Node> {
-        let _life = self.plugin.life.inner.read();
+        let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
         let predicate = predicate.inner.as_ptr();
 
-        Some(Node::new(
-            NonNull::new(unsafe { lib::lilv_port_get(plugin, port, predicate) })?,
-            self.plugin.life.clone(),
-        ))
+        Some({
+            let ptr = NonNull::new(unsafe { lib::lilv_port_get(plugin, port, predicate) })?;
+            let world = self.plugin.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: false,
+                life: world,
+            }
+        })
     }
 
     #[must_use]
     pub fn properties(&self) -> Option<Nodes> {
-        let _life = self.plugin.life.inner.read();
+        let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
 
@@ -67,7 +73,7 @@ impl<'a> Port<'a> {
 
     #[must_use]
     pub fn has_property(&self, property_uri: &Node) -> bool {
-        let _life = self.plugin.life.inner.read();
+        let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
         let property_uri = property_uri.inner.as_ptr();
@@ -77,7 +83,7 @@ impl<'a> Port<'a> {
 
     #[must_use]
     pub fn supports_event(&self, event_type: &Node) -> bool {
-        let _life = self.plugin.life.inner.read();
+        let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
         let event_type = event_type.inner.as_ptr();
@@ -87,7 +93,7 @@ impl<'a> Port<'a> {
 
     #[must_use]
     pub fn index(&self) -> usize {
-        let _life = self.plugin.life.inner.read();
+        let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
 
@@ -96,32 +102,42 @@ impl<'a> Port<'a> {
 
     #[must_use]
     pub fn symbol(&self) -> Option<Node> {
-        let _life = self.plugin.life.inner.read();
+        let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
 
-        Node::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_port_get_symbol(plugin, port) as _ })?,
-            self.plugin.life.clone(),
-        )
+        {
+            let ptr = NonNull::new(unsafe { lib::lilv_port_get_symbol(plugin, port) as _ })?;
+            let world = self.plugin.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: true,
+                life: world,
+            }
+        }
         .into()
     }
 
     #[must_use]
     pub fn name(&self) -> Option<Node> {
-        let _life = self.plugin.life.inner.read();
+        let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
 
-        Some(Node::new(
-            NonNull::new(unsafe { lib::lilv_port_get_name(plugin, port) })?,
-            self.plugin.life.clone(),
-        ))
+        Some({
+            let ptr = NonNull::new(unsafe { lib::lilv_port_get_name(plugin, port) })?;
+            let world = self.plugin.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: false,
+                life: world,
+            }
+        })
     }
 
     #[must_use]
     pub fn classes(&self) -> Option<Nodes> {
-        let _life = self.plugin.life.inner.read();
+        let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
 
@@ -134,7 +150,7 @@ impl<'a> Port<'a> {
 
     #[must_use]
     pub fn is_a(&self, port_class: &Node) -> bool {
-        let _life = self.plugin.life.inner.read();
+        let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
         let port_class = port_class.inner.as_ptr();
@@ -150,7 +166,7 @@ impl<'a> Port<'a> {
         minimum: Option<&mut Option<Node>>,
         maximum: Option<&mut Option<Node>>,
     ) {
-        let _life = self.plugin.life.inner.read();
+        let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
 
@@ -175,30 +191,45 @@ impl<'a> Port<'a> {
         }
 
         if let Some(default) = default {
-            *default = Some(Node::new(
-                NonNull::new(default_ptr).unwrap(),
-                self.plugin.life.clone(),
-            ));
+            *default = Some({
+                let ptr = NonNull::new(default_ptr).unwrap();
+                let world = self.plugin.life.clone();
+                Node {
+                    inner: ptr,
+                    borrowed: false,
+                    life: world,
+                }
+            });
         }
 
         if let Some(minimum) = minimum {
-            *minimum = Some(Node::new(
-                NonNull::new(minimum_ptr).unwrap(),
-                self.plugin.life.clone(),
-            ));
+            *minimum = Some({
+                let ptr = NonNull::new(minimum_ptr).unwrap();
+                let world = self.plugin.life.clone();
+                Node {
+                    inner: ptr,
+                    borrowed: false,
+                    life: world,
+                }
+            });
         }
 
         if let Some(maximum) = maximum {
-            *maximum = Some(Node::new(
-                NonNull::new(maximum_ptr).unwrap(),
-                self.plugin.life.clone(),
-            ));
+            *maximum = Some({
+                let ptr = NonNull::new(maximum_ptr).unwrap();
+                let world = self.plugin.life.clone();
+                Node {
+                    inner: ptr,
+                    borrowed: false,
+                    life: world,
+                }
+            });
         }
     }
 
     #[must_use]
     pub fn scale_points(&self) -> ScalePoints {
-        let _life = self.plugin.life.inner.read();
+        let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr() as *const _;
         let port = self.inner.as_ptr() as *const _;
 
@@ -222,26 +253,36 @@ impl<'a> ScalePoint<'a> {
     /// Panics if the node for the value could not be obtained.
     #[must_use]
     pub fn label(&self) -> Node {
-        let _life = self.port.plugin.life.inner.read();
+        let _life = self.port.plugin.life.inner.lock();
         let inner = self.inner.as_ptr();
 
-        Node::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_scale_point_get_label(inner) as _ }).unwrap(),
-            self.port.plugin.life.clone(),
-        )
+        {
+            let ptr = NonNull::new(unsafe { lib::lilv_scale_point_get_label(inner) as _ }).unwrap();
+            let world = self.port.plugin.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: true,
+                life: world,
+            }
+        }
     }
 
     /// # Panics
     /// Panics if the node for the value could not be obtained.
     #[must_use]
     pub fn value(&self) -> Node {
-        let _life = self.port.plugin.life.inner.read();
+        let _life = self.port.plugin.life.inner.lock();
         let inner = self.inner.as_ptr();
 
-        Node::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_scale_point_get_value(inner) as _ }).unwrap(),
-            self.port.plugin.life.clone(),
-        )
+        {
+            let ptr = NonNull::new(unsafe { lib::lilv_scale_point_get_value(inner) as _ }).unwrap();
+            let world = self.port.plugin.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: true,
+                life: world,
+            }
+        }
     }
 }
 
@@ -253,14 +294,14 @@ pub struct ScalePoints<'a> {
 impl<'a> ScalePoints<'a> {
     #[must_use]
     pub fn size(&self) -> usize {
-        let _life = self.port.plugin.life.inner.read();
+        let _life = self.port.plugin.life.inner.lock();
         let size: u32 = unsafe { lib::lilv_scale_points_size(self.inner) };
         size as usize
     }
 
     #[must_use]
     pub fn iter(&self) -> ScalePointsIter<'_> {
-        let _life = self.port.plugin.life.inner.read();
+        let _life = self.port.plugin.life.inner.lock();
         ScalePointsIter {
             inner: self,
             iter: unsafe { lib::lilv_scale_points_begin(self.inner) },
@@ -277,7 +318,7 @@ impl<'a> Iterator for ScalePointsIter<'a> {
     type Item = ScalePoint<'a>;
 
     fn next(&mut self) -> Option<ScalePoint<'a>> {
-        let _life = self.inner.port.plugin.life.inner.read();
+        let _life = self.inner.port.plugin.life.inner.lock();
         let next_ptr =
             unsafe { lib::lilv_scale_points_get(self.inner.inner, self.iter.cast()) } as *mut _;
         let next = Some(ScalePoint {

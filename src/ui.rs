@@ -17,18 +17,23 @@ impl<'a> UI<'a> {
     /// Panics if it was not possible to get the URI.
     #[must_use]
     pub fn uri(&self) -> Node {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         let ui = self.inner.as_ptr();
 
-        Node::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_ui_get_uri(ui) as _ }).unwrap(),
-            self.plugin.life.clone(),
-        )
+        {
+            let ptr = NonNull::new(unsafe { lib::lilv_ui_get_uri(ui) as _ }).unwrap();
+            let world = self.plugin.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: true,
+                life: world,
+            }
+        }
     }
 
     #[must_use]
     pub fn classes(&self) -> Option<Nodes> {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         let ui = self.inner.as_ptr();
 
         Some(Nodes::new(
@@ -39,7 +44,7 @@ impl<'a> UI<'a> {
 
     #[must_use]
     pub fn is_a(&self, class_uri: &Node) -> bool {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         let ui = self.inner.as_ptr();
         let class_uri = class_uri.inner.as_ptr();
 
@@ -61,7 +66,7 @@ impl<'a> UI<'a> {
         let mut ui_type_ptr = std::ptr::null();
 
         let quality = UISupportQuality(unsafe {
-            let _life = self.life.inner.read();
+            let _life = self.life.inner.lock();
             lib::lilv_ui_is_supported(
                 ui,
                 Some(supported_func::<S>),
@@ -77,7 +82,14 @@ impl<'a> UI<'a> {
                 Some(ptr) => ptr,
                 None => return UISupportQuality(0),
             };
-            *ui_type = Some(Node::new_borrowed(ptr, self.plugin.life.clone()));
+            *ui_type = Some({
+                let world = self.plugin.life.clone();
+                Node {
+                    inner: ptr,
+                    borrowed: true,
+                    life: world,
+                }
+            });
         }
 
         quality
@@ -86,24 +98,34 @@ impl<'a> UI<'a> {
     #[must_use]
     pub fn bundle_uri(&self) -> Option<Node> {
         let ui = self.inner.as_ptr();
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
 
-        Some(Node::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_ui_get_bundle_uri(ui) as _ })?,
-            self.plugin.life.clone(),
-        ))
+        Some({
+            let ptr = NonNull::new(unsafe { lib::lilv_ui_get_bundle_uri(ui) as _ })?;
+            let world = self.plugin.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: true,
+                life: world,
+            }
+        })
     }
 
     /// Get the uri for the binary.
     #[must_use]
     pub fn binary_uri(&self) -> Option<Node> {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         let ui = self.inner.as_ptr();
 
-        Some(Node::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_ui_get_binary_uri(ui) as _ })?,
-            self.plugin.life.clone(),
-        ))
+        Some({
+            let ptr = NonNull::new(unsafe { lib::lilv_ui_get_binary_uri(ui) as _ })?;
+            let world = self.plugin.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: true,
+                life: world,
+            }
+        })
     }
 }
 

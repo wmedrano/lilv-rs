@@ -22,24 +22,34 @@ impl PluginClass {
 
     #[must_use]
     pub fn parent_uri(&self) -> Option<Node> {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         let inner = self.inner.as_ptr();
 
-        Some(Node::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_plugin_class_get_parent_uri(inner) as _ })?,
-            self.life.clone(),
-        ))
+        Some({
+            let ptr = NonNull::new(unsafe { lib::lilv_plugin_class_get_parent_uri(inner) as _ })?;
+            let world = self.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: true,
+                life: world,
+            }
+        })
     }
 
     #[must_use]
     pub fn uri(&self) -> Option<Node> {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         let inner = self.inner.as_ptr();
 
-        Node::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_plugin_class_get_uri(inner) as _ })?,
-            self.life.clone(),
-        )
+        {
+            let ptr = NonNull::new(unsafe { lib::lilv_plugin_class_get_uri(inner) as _ })?;
+            let world = self.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: true,
+                life: world,
+            }
+        }
         .into()
     }
 
@@ -47,18 +57,24 @@ impl PluginClass {
     /// Panics if the label could not be obtained.
     #[must_use]
     pub fn label(&self) -> Node {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         let inner = self.inner.as_ptr();
 
-        Node::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_plugin_class_get_label(inner) as _ }).unwrap(),
-            self.life.clone(),
-        )
+        {
+            let ptr =
+                NonNull::new(unsafe { lib::lilv_plugin_class_get_label(inner) as _ }).unwrap();
+            let world = self.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: true,
+                life: world,
+            }
+        }
     }
 
     #[must_use]
     pub fn children(&self) -> Option<PluginClasses> {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         let inner = self.inner.as_ptr();
         PluginClasses {
             inner: NonNull::new(unsafe { lib::lilv_plugin_class_get_children(inner) })?,
@@ -76,7 +92,7 @@ pub struct PluginClasses {
 impl PluginClasses {
     #[must_use]
     pub fn iter(&self) -> PluginClassesIter {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         PluginClassesIter {
             classes: self.inner.as_ptr(),
             iter: unsafe { lib::lilv_plugin_classes_begin(self.inner.as_ptr()) },
@@ -86,13 +102,13 @@ impl PluginClasses {
 
     #[must_use]
     pub fn size(&self) -> usize {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         unsafe { lib::lilv_plugin_classes_size(self.inner.as_ptr()) as _ }
     }
 
     #[must_use]
     pub fn get_by_uri(&self, uri: &Node) -> Option<PluginClass> {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         let inner = self.inner.as_ptr();
         let uri = uri.inner.as_ptr();
 
@@ -114,7 +130,7 @@ impl Iterator for PluginClassesIter {
 
     #[must_use]
     fn next(&mut self) -> Option<PluginClass> {
-        let _life = self.life.inner.read();
+        let _life = self.life.inner.lock();
         let ptr = unsafe { lib::lilv_plugin_classes_get(self.classes, self.iter) };
         if ptr.is_null() {
             None

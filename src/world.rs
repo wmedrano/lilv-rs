@@ -3,7 +3,7 @@ use crate::plugin::PluginsIter;
 use crate::plugin_class::PluginClass;
 use crate::Plugin;
 use lilv_sys as lib;
-use parking_lot::RwLock;
+use parking_lot::Mutex;
 use std::ptr::NonNull;
 use std::sync::Arc;
 
@@ -18,7 +18,7 @@ pub struct World {
 
 #[doc(hidden)]
 pub struct Life {
-    pub(crate) inner: RwLock<NonNull<lib::LilvWorldImpl>>,
+    pub(crate) inner: Mutex<NonNull<lib::LilvWorldImpl>>,
 }
 
 impl World {
@@ -30,7 +30,7 @@ impl World {
     pub fn new() -> Self {
         Self {
             life: Arc::new(Life {
-                inner: RwLock::new(NonNull::new(unsafe { lib::lilv_world_new() }).unwrap()),
+                inner: Mutex::new(NonNull::new(unsafe { lib::lilv_world_new() }).unwrap()),
             }),
         }
     }
@@ -39,7 +39,7 @@ impl World {
     /// # Panics
     /// Panics if uri could not be converted to a `CString`.
     pub fn set_option(&self, uri: &str, value: &Node) {
-        let world = self.life.inner.write();
+        let world = self.life.inner.lock();
         let uri = std::ffi::CString::new(uri).unwrap();
         let value = value.inner.as_ptr();
 
@@ -52,14 +52,20 @@ impl World {
     /// Panics on failure.
     #[must_use]
     pub fn new_uri(&self, uri: &str) -> Node {
-        let world = self.life.inner.write();
+        let world = self.life.inner.lock();
         let uri = std::ffi::CString::new(uri).unwrap();
 
-        Node::new(
-            NonNull::new(unsafe { lib::lilv_new_uri(world.as_ptr(), uri.as_ptr().cast()) })
-                .unwrap(),
-            self.life.clone(),
-        )
+        {
+            let ptr =
+                NonNull::new(unsafe { lib::lilv_new_uri(world.as_ptr(), uri.as_ptr().cast()) })
+                    .unwrap();
+            let world = self.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: false,
+                life: world,
+            }
+        }
     }
 
     /// Creates a new file URI value.
@@ -68,7 +74,7 @@ impl World {
     /// Panics on failure.
     #[must_use]
     pub fn new_file_uri(&self, host: Option<&str>, path: &str) -> Node {
-        let world = self.life.inner.write();
+        let world = self.life.inner.lock();
         let host = host
             .iter()
             .find_map(|h| std::ffi::CString::new(h.as_bytes()).ok());
@@ -77,11 +83,17 @@ impl World {
         let host_ptr = host.map_or(std::ptr::null(), |h| h.as_ptr());
         let path_ptr = path.as_ptr();
 
-        Node::new(
-            NonNull::new(unsafe { lib::lilv_new_file_uri(world.as_ptr(), host_ptr, path_ptr) })
-                .unwrap(),
-            self.life.clone(),
-        )
+        {
+            let ptr =
+                NonNull::new(unsafe { lib::lilv_new_file_uri(world.as_ptr(), host_ptr, path_ptr) })
+                    .unwrap();
+            let world = self.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: false,
+                life: world,
+            }
+        }
     }
 
     /// Creates a new string value (with no language).
@@ -90,13 +102,20 @@ impl World {
     /// Panics on failure.
     #[must_use]
     pub fn new_string(&self, string: &str) -> Node {
-        let world = self.life.inner.write();
+        let world = self.life.inner.lock();
         let string = std::ffi::CString::new(string).unwrap();
 
-        Node::new(
-            NonNull::new(unsafe { lib::lilv_new_string(world.as_ptr(), string.as_ptr()) }).unwrap(),
-            self.life.clone(),
-        )
+        {
+            let ptr =
+                NonNull::new(unsafe { lib::lilv_new_string(world.as_ptr(), string.as_ptr()) })
+                    .unwrap();
+            let world = self.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: false,
+                life: world,
+            }
+        }
     }
 
     /// Creates a new integer value.
@@ -105,11 +124,16 @@ impl World {
     /// Panics on failure.
     #[must_use]
     pub fn new_int(&self, value: i32) -> Node {
-        let world = self.life.inner.write();
-        Node::new(
-            NonNull::new(unsafe { lib::lilv_new_int(world.as_ptr(), value) }).unwrap(),
-            self.life.clone(),
-        )
+        let world = self.life.inner.lock();
+        {
+            let ptr = NonNull::new(unsafe { lib::lilv_new_int(world.as_ptr(), value) }).unwrap();
+            let world = self.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: false,
+                life: world,
+            }
+        }
     }
 
     /// Creates a new floating point value.
@@ -118,11 +142,16 @@ impl World {
     /// Panics on failure.
     #[must_use]
     pub fn new_float(&self, value: f32) -> Node {
-        let world = self.life.inner.write();
-        Node::new(
-            NonNull::new(unsafe { lib::lilv_new_float(world.as_ptr(), value) }).unwrap(),
-            self.life.clone(),
-        )
+        let world = self.life.inner.lock();
+        {
+            let ptr = NonNull::new(unsafe { lib::lilv_new_float(world.as_ptr(), value) }).unwrap();
+            let world = self.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: false,
+                life: world,
+            }
+        }
     }
 
     /// Creates a new boolean value.
@@ -131,11 +160,16 @@ impl World {
     /// Panics on failure.
     #[must_use]
     pub fn new_bool(&self, value: bool) -> Node {
-        let world = self.life.inner.write();
-        Node::new(
-            NonNull::new(unsafe { lib::lilv_new_bool(world.as_ptr(), value) }).unwrap(),
-            self.life.clone(),
-        )
+        let world = self.life.inner.lock();
+        {
+            let ptr = NonNull::new(unsafe { lib::lilv_new_bool(world.as_ptr(), value) }).unwrap();
+            let world = self.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: false,
+                life: world,
+            }
+        }
     }
 
     /// Loads all installed LV2 bundles on the system.
@@ -146,14 +180,14 @@ impl World {
     /// world.load_all();
     /// ```
     pub fn load_all(&self) {
-        let world = self.life.inner.write();
+        let world = self.life.inner.lock();
         unsafe { lib::lilv_world_load_all(world.as_ptr()) }
     }
 
     /// Loads a specific bundle. `bundle_uri` must be a fully qualified URI to the bundle directory,
     /// with the trailing slash, eg `file:///usr/lib/lv2/foo.lv2/`.
     pub fn load_bundle(&self, bundle_uri: &Node) {
-        let world = self.life.inner.write();
+        let world = self.life.inner.lock();
         let bundle_uri = bundle_uri.inner.as_ptr();
 
         unsafe { lib::lilv_world_load_bundle(world.as_ptr(), bundle_uri) }
@@ -165,7 +199,7 @@ impl World {
     /// necessary when using [`load_all`](#method.load_all). This function parses the specifications
     /// and adds them to the model.
     pub fn load_specifications(&self) {
-        let world = self.life.inner.write();
+        let world = self.life.inner.lock();
         unsafe { lib::lilv_world_load_specifications(world.as_ptr()) }
     }
 
@@ -175,7 +209,7 @@ impl World {
     /// that explicitly load specific bundles; its use is not necessary when using
     /// [`load_all`](#method.load_all).
     pub fn load_plugin_classes(&self) {
-        let world = self.life.inner.write();
+        let world = self.life.inner.lock();
         unsafe { lib::lilv_world_load_plugin_classes(world.as_ptr()) }
     }
 
@@ -191,7 +225,7 @@ impl World {
     /// behaviour.
     #[must_use]
     pub unsafe fn unload_bundle(&self, bundle_uri: &Node) -> bool {
-        let world = self.life.inner.write();
+        let world = self.life.inner.lock();
         let bundle_uri = bundle_uri.inner.as_ptr();
 
         lib::lilv_world_unload_bundle(world.as_ptr(), bundle_uri) == 0
@@ -204,7 +238,7 @@ impl World {
     #[allow(clippy::cast_sign_loss)]
     #[must_use]
     pub fn load_resource(&self, resource: &Node) -> Option<usize> {
-        let world = self.life.inner.write();
+        let world = self.life.inner.lock();
         let resource = resource.inner.as_ptr();
 
         match unsafe { lib::lilv_world_load_resource(world.as_ptr(), resource) } {
@@ -220,7 +254,7 @@ impl World {
     /// behaviour.
     #[must_use]
     pub unsafe fn unload_resource(&self, resource: &Node) -> bool {
-        let world = self.life.inner.write();
+        let world = self.life.inner.lock();
         let resource = resource.inner.as_ptr();
 
         lib::lilv_world_unload_resource(world.as_ptr(), resource) == 0
@@ -229,7 +263,7 @@ impl World {
     /// Get the parent of all other plugin classes, lv2:Plugin.
     #[must_use]
     pub fn plugin_class(&self) -> Option<PluginClass> {
-        let world = self.life.inner.read();
+        let world = self.life.inner.lock();
         Some(PluginClass::new_borrowed(
             NonNull::new(unsafe { lib::lilv_world_get_plugin_class(world.as_ptr()) as _ })?,
             self.life.clone(),
@@ -239,7 +273,7 @@ impl World {
     /// An iterable over all the plugins in the world.
     #[must_use]
     pub fn plugins(&self) -> PluginsIter {
-        let world = self.life.inner.read();
+        let world = self.life.inner.lock();
         let (ptr, iter) = {
             let ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
             let iter = unsafe { lib::lilv_plugins_begin(ptr) };
@@ -256,7 +290,7 @@ impl World {
     /// Get a plugin by its unique identifier.
     #[must_use]
     pub fn plugin(&self, uri: &Node) -> Option<Plugin> {
-        let world = self.life.inner.read();
+        let world = self.life.inner.lock();
         let plugin_ptr: *mut lib::LilvPlugin = {
             let plugins_ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
             let uri_ptr = uri.inner.as_ptr();
@@ -271,7 +305,7 @@ impl World {
     /// The number of plugins loaded.
     #[must_use]
     pub fn plugins_count(&self) -> usize {
-        let world = self.life.inner.read();
+        let world = self.life.inner.lock();
         let ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
         let size = unsafe { lib::lilv_plugins_size(ptr) };
         size as usize
@@ -285,7 +319,7 @@ impl World {
         predicate: &Node,
         object: Option<&Node>,
     ) -> Option<Nodes> {
-        let world = self.life.inner.read();
+        let world = self.life.inner.lock();
         let subject = subject.map_or(std::ptr::null(), |n| n.inner.as_ptr() as _);
         let predicate = predicate.inner.as_ptr();
         let object = object.map_or(std::ptr::null(), |n| n.inner.as_ptr() as _);
@@ -307,17 +341,22 @@ impl World {
         predicate: Option<&Node>,
         object: Option<&Node>,
     ) -> Option<Node> {
-        let world = self.life.inner.read();
+        let world = self.life.inner.lock();
         let subject = subject.map_or(std::ptr::null(), |n| n.inner.as_ptr() as _);
         let predicate = predicate.map_or(std::ptr::null(), |n| n.inner.as_ptr() as _);
         let object = object.map_or(std::ptr::null(), |n| n.inner.as_ptr() as _);
 
-        Some(Node::new(
-            NonNull::new(unsafe {
+        Some({
+            let ptr = NonNull::new(unsafe {
                 lib::lilv_world_get(world.as_ptr(), subject, predicate, object)
-            })?,
-            self.life.clone(),
-        ))
+            })?;
+            let world = self.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: false,
+                life: world,
+            }
+        })
     }
 
     /// Returns true iff a statement matching a certain pattern exists.
@@ -328,7 +367,7 @@ impl World {
         predicate: Option<&Node>,
         object: Option<&Node>,
     ) -> bool {
-        let world = self.life.inner.read();
+        let world = self.life.inner.lock();
         let subject = subject.map_or(std::ptr::null(), |n| n.inner.as_ptr() as _);
         let predicate = predicate.map_or(std::ptr::null(), |n| n.inner.as_ptr() as _);
         let object = object.map_or(std::ptr::null(), |n| n.inner.as_ptr() as _);
@@ -342,13 +381,18 @@ impl World {
     /// it will attempt to derive a symbol from the URI.
     #[must_use]
     pub fn symbol(&self, subject: &Node) -> Option<Node> {
-        let world = self.life.inner.read();
+        let world = self.life.inner.lock();
         let subject = subject.inner.as_ptr();
 
-        Some(Node::new(
-            NonNull::new(unsafe { lib::lilv_world_get_symbol(world.as_ptr(), subject) })?,
-            self.life.clone(),
-        ))
+        Some({
+            let ptr = NonNull::new(unsafe { lib::lilv_world_get_symbol(world.as_ptr(), subject) })?;
+            let world = self.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: false,
+                life: world,
+            }
+        })
     }
 }
 
@@ -362,7 +406,7 @@ impl Default for World {
 impl Drop for Life {
     fn drop(&mut self) {
         unsafe {
-            let world = self.inner.write();
+            let world = self.inner.lock();
             lib::lilv_world_free(world.as_ptr());
         }
     }
