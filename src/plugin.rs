@@ -46,15 +46,12 @@ impl Plugin {
     pub fn uri(&self) -> Node {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
-
-        {
-            let ptr = NonNull::new(unsafe { lib::lilv_plugin_get_uri(plugin) as _ }).unwrap();
-            let world = self.life.clone();
-            Node {
-                inner: ptr,
-                borrowed: true,
-                life: world,
-            }
+        let ptr = NonNull::new(unsafe { lib::lilv_plugin_get_uri(plugin) as _ }).unwrap();
+        let world = self.life.clone();
+        Node {
+            inner: ptr,
+            borrowed: true,
+            life: world,
         }
     }
 
@@ -231,7 +228,6 @@ impl Plugin {
     /// Return the ranges for all ports.
     #[must_use]
     pub fn port_ranges_float(&self) -> Vec<PortRanges> {
-        let _life = self.life.inner.lock();
         let ports_count = self.num_ports();
         let mut min = vec![0_f32; ports_count];
         let mut max = vec![0_f32; ports_count];
@@ -239,6 +235,7 @@ impl Plugin {
         let plugin = self.inner.as_ptr();
 
         unsafe {
+            let _life = self.life.inner.lock();
             lib::lilv_plugin_get_port_ranges_float(
                 plugin,
                 min.as_mut_ptr(),
@@ -273,8 +270,8 @@ impl Plugin {
 
     #[must_use]
     pub fn latency_port_index(&self) -> Option<usize> {
-        let _life = self.life.inner.lock();
         if self.has_latency() {
+            let _life = self.life.inner.lock();
             let plugin = self.inner.as_ptr();
             Some(unsafe { lib::lilv_plugin_get_latency_port_index(plugin) as _ })
         } else {
@@ -389,15 +386,13 @@ impl Plugin {
     pub fn author_homepage(&self) -> Option<Node> {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
+        let ptr = NonNull::new(unsafe { lib::lilv_plugin_get_author_homepage(plugin) })?;
+        let world = self.life.clone();
 
-        Some({
-            let ptr = NonNull::new(unsafe { lib::lilv_plugin_get_author_homepage(plugin) })?;
-            let world = self.life.clone();
-            Node {
-                inner: ptr,
-                borrowed: false,
-                life: world,
-            }
+        Some(Node {
+            inner: ptr,
+            borrowed: false,
+            life: world,
         })
     }
 

@@ -46,8 +46,8 @@ impl Node {
     /// Returns this value as a URI string.
     #[must_use]
     pub fn as_uri(&self) -> Option<&str> {
-        let _life = self.life.inner.lock();
         if self.is_uri() {
+            let _life = self.life.inner.lock();
             Some(unsafe {
                 CStr::from_ptr(lib::lilv_node_as_uri(self.inner.as_ptr()))
                     .to_str()
