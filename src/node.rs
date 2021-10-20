@@ -1,6 +1,5 @@
 use crate::world::Life;
 use lilv_sys as lib;
-use parking_lot::RwLock;
 use std::ffi::CStr;
 use std::ptr::NonNull;
 use std::sync::Arc;
@@ -15,35 +14,21 @@ unsafe impl Send for Node {}
 unsafe impl Sync for Node {}
 
 pub struct Node {
-    pub(crate) inner: RwLock<NonNull<lib::LilvNodeImpl>>,
-    borrowed: bool,
-    world: Arc<Life>,
+    pub(crate) inner: NonNull<lib::LilvNodeImpl>,
+    pub(crate) borrowed: bool,
+    pub(crate) life: Arc<Life>,
 }
 
 impl Node {
-    pub(crate) fn new(ptr: NonNull<lib::LilvNodeImpl>, world: Arc<Life>) -> Self {
-        Self {
-            inner: RwLock::new(ptr),
-            borrowed: false,
-            world,
-        }
-    }
-
-    pub(crate) fn new_borrowed(ptr: NonNull<lib::LilvNodeImpl>, world: Arc<Life>) -> Self {
-        Self {
-            inner: RwLock::new(ptr),
-            borrowed: true,
-            world,
-        }
-    }
-
     /// Returns this value as a Turtle/SPARQL token.
+    #[must_use]
     pub fn turtle_token(&self) -> String {
-        let node = self.inner.read().as_ptr();
+        let _life = self.life.inner.lock();
+        let node = self.inner.as_ptr();
 
         unsafe {
             let original = lib::lilv_node_get_turtle_token(node);
-            let rusty = CStr::from_ptr(lib::lilv_node_get_turtle_token(self.inner.read().as_ptr()))
+            let rusty = CStr::from_ptr(lib::lilv_node_get_turtle_token(self.inner.as_ptr()))
                 .to_string_lossy()
                 .into_owned();
             lib::lilv_free(original.cast());
@@ -52,15 +37,19 @@ impl Node {
     }
 
     /// Returns whether the value is a URI (resource).
+    #[must_use]
     pub fn is_uri(&self) -> bool {
-        unsafe { lib::lilv_node_is_uri(self.inner.read().as_ptr()) }
+        let _life = self.life.inner.lock();
+        unsafe { lib::lilv_node_is_uri(self.inner.as_ptr()) }
     }
 
     /// Returns this value as a URI string.
+    #[must_use]
     pub fn as_uri(&self) -> Option<&str> {
         if self.is_uri() {
+            let _life = self.life.inner.lock();
             Some(unsafe {
-                CStr::from_ptr(lib::lilv_node_as_uri(self.inner.read().as_ptr()))
+                CStr::from_ptr(lib::lilv_node_as_uri(self.inner.as_ptr()))
                     .to_str()
                     .ok()?
             })
@@ -70,15 +59,19 @@ impl Node {
     }
 
     /// Returns whether the value is a blank node (resource with no URI).
+    #[must_use]
     pub fn is_blank(&self) -> bool {
-        unsafe { lib::lilv_node_is_blank(self.inner.read().as_ptr()) }
+        let _life = self.life.inner.lock();
+        unsafe { lib::lilv_node_is_blank(self.inner.as_ptr()) }
     }
 
     /// Returns this value as a blank node identifier.
+    #[must_use]
     pub fn as_blank(&self) -> Option<&str> {
         if self.is_blank() {
+            let _life = self.life.inner.lock();
             Some(unsafe {
-                CStr::from_ptr(lib::lilv_node_as_blank(self.inner.read().as_ptr()))
+                CStr::from_ptr(lib::lilv_node_as_blank(self.inner.as_ptr()))
                     .to_str()
                     .ok()?
             })
@@ -87,31 +80,42 @@ impl Node {
         }
     }
 
+    #[must_use]
     pub fn is_literal(&self) -> bool {
-        unsafe { lib::lilv_node_is_literal(self.inner.read().as_ptr()) }
+        let _life = self.life.inner.lock();
+        unsafe { lib::lilv_node_is_literal(self.inner.as_ptr()) }
     }
 
+    #[must_use]
     pub fn is_string(&self) -> bool {
-        unsafe { lib::lilv_node_is_string(self.inner.read().as_ptr()) }
+        let _life = self.life.inner.lock();
+        unsafe { lib::lilv_node_is_string(self.inner.as_ptr()) }
     }
 
+    #[must_use]
     pub fn as_str(&self) -> Option<&str> {
+        let _life = self.life.inner.lock();
         Some(unsafe {
-            CStr::from_ptr(lib::lilv_node_as_string(self.inner.read().as_ptr()))
+            CStr::from_ptr(lib::lilv_node_as_string(self.inner.as_ptr()))
                 .to_str()
                 .ok()?
         })
     }
 
+    #[must_use]
     pub fn get_path(&self) -> Option<(String, String)> {
-        let node = self.inner.read().as_ptr();
+        let node = self.inner.as_ptr();
         let mut hostname = std::ptr::null_mut();
-        let path = NonNull::new(unsafe { lib::lilv_node_get_path(node, &mut hostname) })?;
+        let path = NonNull::new(unsafe {
+            let _life = self.life.inner.lock();
+            lib::lilv_node_get_path(node, &mut hostname)
+        })?;
 
         unsafe {
             let rusty_path = CStr::from_ptr(path.as_ptr()).to_string_lossy().into_owned();
             let rusty_hostname = CStr::from_ptr(hostname).to_string_lossy().into_owned();
 
+            let _life = self.life.inner.lock();
             serd_free(path.as_ptr().cast());
             serd_free(hostname.cast());
 
@@ -119,37 +123,49 @@ impl Node {
         }
     }
 
+    #[must_use]
     pub fn is_float(&self) -> bool {
-        unsafe { lib::lilv_node_is_float(self.inner.read().as_ptr()) }
+        let _life = self.life.inner.lock();
+        unsafe { lib::lilv_node_is_float(self.inner.as_ptr()) }
     }
 
+    #[must_use]
     pub fn as_float(&self) -> Option<f32> {
         if self.is_float() {
-            Some(unsafe { lib::lilv_node_as_float(self.inner.read().as_ptr()) })
+            let _life = self.life.inner.lock();
+            Some(unsafe { lib::lilv_node_as_float(self.inner.as_ptr()) })
         } else {
             None
         }
     }
 
+    #[must_use]
     pub fn is_int(&self) -> bool {
-        unsafe { lib::lilv_node_is_int(self.inner.read().as_ptr()) }
+        let _life = self.life.inner.lock();
+        unsafe { lib::lilv_node_is_int(self.inner.as_ptr()) }
     }
 
+    #[must_use]
     pub fn as_int(&self) -> Option<i32> {
         if self.is_int() {
-            Some(unsafe { lib::lilv_node_as_int(self.inner.read().as_ptr()) })
+            let _life = self.life.inner.lock();
+            Some(unsafe { lib::lilv_node_as_int(self.inner.as_ptr()) })
         } else {
             None
         }
     }
 
+    #[must_use]
     pub fn is_bool(&self) -> bool {
-        unsafe { lib::lilv_node_is_bool(self.inner.read().as_ptr()) }
+        let _life = self.life.inner.lock();
+        unsafe { lib::lilv_node_is_bool(self.inner.as_ptr()) }
     }
 
+    #[must_use]
     pub fn as_bool(&self) -> Option<bool> {
         if self.is_bool() {
-            Some(unsafe { lib::lilv_node_as_bool(self.inner.read().as_ptr()) })
+            let _life = self.life.inner.lock();
+            Some(unsafe { lib::lilv_node_as_bool(self.inner.as_ptr()) })
         } else {
             None
         }
@@ -158,51 +174,48 @@ impl Node {
 
 impl Clone for Node {
     fn clone(&self) -> Self {
+        let _life = self.life.inner.lock();
         Self {
-            inner: RwLock::new(
-                NonNull::new(unsafe { lib::lilv_node_duplicate(self.inner.read().as_ptr()) })
-                    .unwrap(),
-            ),
+            inner: NonNull::new(unsafe { lib::lilv_node_duplicate(self.inner.as_ptr()) }).unwrap(),
             borrowed: false,
-            world: self.world.clone(),
+            life: self.life.clone(),
         }
     }
 }
 
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
-        unsafe { lib::lilv_node_equals(self.inner.read().as_ptr(), other.inner.read().as_ptr()) }
+        let _life = self.life.inner.lock();
+        unsafe { lib::lilv_node_equals(self.inner.as_ptr(), other.inner.as_ptr()) }
     }
 }
 
 impl Drop for Node {
     fn drop(&mut self) {
+        let _life = self.life.inner.lock();
         if !self.borrowed {
-            unsafe { lib::lilv_node_free(self.inner.write().as_ptr()) }
+            unsafe { lib::lilv_node_free(self.inner.as_ptr()) }
         }
     }
 }
 
 pub struct Nodes {
     pub(crate) inner: NonNull<lib::LilvNodes>,
-    pub(crate) world: Arc<Life>,
+    pub(crate) life: Arc<Life>,
 }
 
 impl Nodes {
     #[must_use]
-    pub(crate) fn new(inner: NonNull<lib::LilvNodes>, world: Arc<Life>) -> Self {
-        Self { inner, world }
-    }
-
-    #[must_use]
     pub fn size(&self) -> usize {
+        let _life = self.life.inner.lock();
         unsafe { lib::lilv_nodes_size(self.inner.as_ptr()) as _ }
     }
 
     #[must_use]
     pub fn contains(&self, value: &Node) -> bool {
+        let _life = self.life.inner.lock();
         let inner = self.inner.as_ptr();
-        let value = value.inner.read().as_ptr();
+        let value = value.inner.as_ptr();
 
         unsafe { lib::lilv_nodes_contains(inner, value) }
     }
@@ -211,20 +224,22 @@ impl Nodes {
     /// Panics if the merge is unsuccessful.
     #[must_use]
     pub fn merge(&self, other: &Self) -> Self {
+        let _life = self.life.inner.lock();
         let a = self.inner.as_ptr();
         let b = other.inner.as_ptr();
 
         Nodes {
             inner: NonNull::new(unsafe { lib::lilv_nodes_merge(a, b) }).unwrap(),
-            world: self.world.clone(),
+            life: self.life.clone(),
         }
     }
 
     #[must_use]
     pub fn iter(&self) -> NodesIter<'_> {
+        let _life = self.life.inner.lock();
         NodesIter {
             inner: unsafe { lib::lilv_nodes_begin(self.inner.as_ptr()) },
-            world: self.world.clone(),
+            life: self.life.clone(),
             nodes: self,
         }
     }
@@ -232,7 +247,7 @@ impl Nodes {
 
 pub struct NodesIter<'a> {
     inner: *mut lib::LilvIter,
-    world: Arc<Life>,
+    life: Arc<Life>,
     nodes: &'a Nodes,
 }
 
@@ -240,8 +255,17 @@ impl<'a> Iterator for NodesIter<'a> {
     type Item = Node;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let _life = self.life.inner.lock();
         let node = unsafe { lib::lilv_nodes_get(self.nodes.inner.as_ptr(), self.inner) } as *mut _;
-        let next = Some(Node::new_borrowed(NonNull::new(node)?, self.world.clone()));
+        let next = Some({
+            let ptr = NonNull::new(node)?;
+            let world = self.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: true,
+                life: world,
+            }
+        });
         self.inner = unsafe { lib::lilv_nodes_next(self.nodes.inner.as_ptr(), self.inner) };
         next
     }

@@ -1,4 +1,4 @@
-use lilv::PortRanges;
+use lilv::FloatPortRanges;
 
 struct Nodes {
     control_class: lilv::Node,
@@ -10,7 +10,7 @@ struct Nodes {
     supports_event_pred: lilv::Node,
 }
 
-fn print_port(p: &lilv::Plugin, index: usize, port_ranges: &PortRanges, nodes: &Nodes) {
+fn print_port(p: &lilv::Plugin, index: usize, port_ranges: &FloatPortRanges, nodes: &Nodes) {
     let port = p.port_by_index(index);
 
     println!("\n\tPort {}:", index);
