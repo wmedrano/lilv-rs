@@ -13,7 +13,7 @@ unsafe impl Sync for Life {}
 /// The world represents all Lilv state. It is used to discover/load/cache LV2
 /// data (plugins, UIs, and extensions).
 pub struct World {
-    life: Arc<Life>,
+    pub(crate) life: Arc<Life>,
 }
 
 #[doc(hidden)]
@@ -342,19 +342,15 @@ impl World {
         subject: Option<&Node>,
         predicate: &Node,
         object: Option<&Node>,
-    ) -> Option<Nodes> {
+    ) -> Nodes {
         let world = self.life.inner.lock();
         let subject = subject.map_or(std::ptr::null(), |n| n.inner.as_ptr() as _);
         let predicate = predicate.inner.as_ptr();
         let object = object.map_or(std::ptr::null(), |n| n.inner.as_ptr() as _);
-
-        Some({
-            let inner = NonNull::new(unsafe {
-                lib::lilv_world_find_nodes(world.as_ptr(), subject, predicate, object)
-            })?;
-            let world = self.life.clone();
-            Nodes { inner, life: world }
-        })
+        let inner =
+            unsafe { lib::lilv_world_find_nodes(world.as_ptr(), subject, predicate, object) };
+        let world = self.life.clone();
+        Nodes { inner, life: world }
     }
 
     /// Find a single node that matches a pattern. Exactly one of `subject`, `predicate`, or

@@ -29,17 +29,14 @@ impl<'a> Port<'a> {
     }
 
     #[must_use]
-    pub fn value(&self, predicate: &Node) -> Option<Nodes> {
+    pub fn value(&self, predicate: &Node) -> Nodes {
         let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
         let predicate = predicate.inner.as_ptr();
-
-        Some({
-            let inner = NonNull::new(unsafe { lib::lilv_port_get_value(plugin, port, predicate) })?;
-            let world = self.plugin.life.clone();
-            Nodes { inner, life: world }
-        })
+        let inner = unsafe { lib::lilv_port_get_value(plugin, port, predicate) };
+        let world = self.plugin.life.clone();
+        Nodes { inner, life: world }
     }
 
     #[must_use]
@@ -61,16 +58,13 @@ impl<'a> Port<'a> {
     }
 
     #[must_use]
-    pub fn properties(&self) -> Option<Nodes> {
+    pub fn properties(&self) -> Nodes {
         let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
-
-        Some({
-            let inner = NonNull::new(unsafe { lib::lilv_port_get_properties(plugin, port) })?;
-            let world = self.plugin.life.clone();
-            Nodes { inner, life: world }
-        })
+        let inner = unsafe { lib::lilv_port_get_properties(plugin, port) };
+        let world = self.plugin.life.clone();
+        Nodes { inner, life: world }
     }
 
     #[must_use]
@@ -138,17 +132,13 @@ impl<'a> Port<'a> {
     }
 
     #[must_use]
-    pub fn classes(&self) -> Option<Nodes> {
+    pub fn classes(&self) -> Nodes {
         let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
-
-        {
-            let inner = NonNull::new(unsafe { lib::lilv_port_get_classes(plugin, port) as _ })?;
-            let world = self.plugin.life.clone();
-            Nodes { inner, life: world }
-        }
-        .into()
+        let inner = unsafe { lib::lilv_port_get_classes(plugin, port) as _ };
+        let world = self.plugin.life.clone();
+        Nodes { inner, life: world }
     }
 
     #[must_use]
