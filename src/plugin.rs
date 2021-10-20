@@ -77,15 +77,13 @@ impl Plugin {
     }
 
     /// The uri for the data.
-    /// # Panics
-    /// Panics if the `data_uris` could not be obtained.
     #[must_use]
     pub fn data_uris(&self) -> Nodes {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
 
         Nodes {
-            inner: NonNull::new(unsafe { lib::lilv_plugin_get_data_uris(plugin) as _ }).unwrap(),
+            inner: unsafe { lib::lilv_plugin_get_data_uris(plugin) },
             life: self.life.clone(),
         }
     }
@@ -134,22 +132,23 @@ impl Plugin {
         let plugin = self.inner.as_ptr();
 
         PluginClass::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_plugin_get_class(plugin) as _ }).unwrap(),
+            NonNull::new(unsafe { lib::lilv_plugin_get_class(plugin) as *mut _ }).unwrap(),
             self.life.clone(),
         )
     }
 
-    /// The value of the predicate or `None` if the plugin does not have one.
+    /// The value of the predicate. `Nodes` may be empty if the plugin does not
+    /// have one.
     #[must_use]
-    pub fn value(&self, predicate: &Node) -> Option<Nodes> {
+    pub fn value(&self, predicate: &Node) -> Nodes {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
         let predicate = predicate.inner.as_ptr();
 
-        Some(Nodes {
-            inner: NonNull::new(unsafe { lib::lilv_plugin_get_value(plugin, predicate) })?,
+        Nodes {
+            inner: unsafe { lib::lilv_plugin_get_value(plugin, predicate) },
             life: self.life.clone(),
-        })
+        }
     }
 
     /// `true` if the plugin supports the feature.
@@ -164,41 +163,32 @@ impl Plugin {
 
     /// The set of features that are supported.
     #[must_use]
-    pub fn supported_features(&self) -> Option<Nodes> {
+    pub fn supported_features(&self) -> Nodes {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
-
-        Some({
-            let inner = NonNull::new(unsafe { lib::lilv_plugin_get_supported_features(plugin) })?;
-            let world = self.life.clone();
-            Nodes { inner, life: world }
-        })
+        let inner = unsafe { lib::lilv_plugin_get_supported_features(plugin) };
+        let world = self.life.clone();
+        Nodes { inner, life: world }
     }
 
     /// The set of features that are required to instantiate the plugin.
     #[must_use]
-    pub fn required_features(&self) -> Option<Nodes> {
+    pub fn required_features(&self) -> Nodes {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
-
-        Some({
-            let inner = NonNull::new(unsafe { lib::lilv_plugin_get_required_features(plugin) })?;
-            let world = self.life.clone();
-            Nodes { inner, life: world }
-        })
+        let inner = unsafe { lib::lilv_plugin_get_required_features(plugin) };
+        let world = self.life.clone();
+        Nodes { inner, life: world }
     }
 
     /// The set of features that are optional to instantiate the plugin.
     #[must_use]
-    pub fn optional_features(&self) -> Option<Nodes> {
+    pub fn optional_features(&self) -> Nodes {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
-
-        Some({
-            let inner = NonNull::new(unsafe { lib::lilv_plugin_get_optional_features(plugin) })?;
-            let world = self.life.clone();
-            Nodes { inner, life: world }
-        })
+        let inner = unsafe { lib::lilv_plugin_get_optional_features(plugin) };
+        let world = self.life.clone();
+        Nodes { inner, life: world }
     }
 
     /// Returns `true` if the plugin has extension data for `uri`.
@@ -218,7 +208,7 @@ impl Plugin {
         let plugin = self.inner.as_ptr();
 
         Some({
-            let inner = NonNull::new(unsafe { lib::lilv_plugin_get_extension_data(plugin) })?;
+            let inner = unsafe { lib::lilv_plugin_get_extension_data(plugin) };
             let world = self.life.clone();
             Nodes { inner, life: world }
         })
@@ -453,7 +443,7 @@ impl Plugin {
         let plugin_type = typ.map_or(std::ptr::null(), |n| n.inner.as_ptr() as _);
 
         Some({
-            let inner = NonNull::new(unsafe { lib::lilv_plugin_get_related(plugin, plugin_type) })?;
+            let inner = unsafe { lib::lilv_plugin_get_related(plugin, plugin_type) };
             let world = self.life.clone();
             Nodes { inner, life: world }
         })
@@ -485,14 +475,16 @@ impl Plugin {
     ) -> Option<Instance> {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
-        let feature_pointers: Vec<*const lv2_raw::LV2Feature> = features
+        let features: Vec<*const lv2_raw::LV2Feature> = features
             .iter()
             .map(|f| f as *const _)
             .chain(std::iter::once(std::ptr::null()))
             .collect();
-        let inner = NonNull::new(
-            (lib::lilv_plugin_instantiate(plugin, sample_rate, feature_pointers.as_ptr())).cast(),
-        )?;
+        let inner = NonNull::new(lib::lilv_plugin_instantiate(
+            plugin,
+            sample_rate,
+            features.as_ptr(),
+        ))?;
 
         Some(Instance {
             inner,

@@ -22,8 +22,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let world = World::new();
-        world.load_all();
+        let world = World::with_load_all();
 
         for plugin in world.plugins() {
             println!("{:?}", plugin.uri().as_str());

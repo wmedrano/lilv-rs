@@ -32,15 +32,13 @@ impl<'a> UI<'a> {
     }
 
     #[must_use]
-    pub fn classes(&self) -> Option<Nodes> {
+    pub fn classes(&self) -> Nodes {
         let _life = self.life.inner.lock();
         let ui = self.inner.as_ptr();
 
-        Some({
-            let inner = NonNull::new(unsafe { lib::lilv_ui_get_classes(ui) as _ })?;
-            let world = self.plugin.life.clone();
-            Nodes { inner, life: world }
-        })
+        let inner = unsafe { lib::lilv_ui_get_classes(ui) };
+        let world = self.plugin.life.clone();
+        Nodes { inner, life: world }
     }
 
     #[must_use]

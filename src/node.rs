@@ -27,12 +27,10 @@ impl Node {
         let node = self.inner.as_ptr();
 
         unsafe {
-            let original = lib::lilv_node_get_turtle_token(node);
-            let rusty = CStr::from_ptr(lib::lilv_node_get_turtle_token(self.inner.as_ptr()))
-                .to_string_lossy()
-                .into_owned();
-            lib::lilv_free(original.cast());
-            rusty
+            let raw = lib::lilv_node_get_turtle_token(node);
+            let formatted = CStr::from_ptr(raw).to_string_lossy().into_owned();
+            lib::lilv_free(raw.cast());
+            formatted
         }
     }
 
@@ -105,21 +103,23 @@ impl Node {
     #[must_use]
     pub fn get_path(&self) -> Option<(String, String)> {
         let node = self.inner.as_ptr();
-        let mut hostname = std::ptr::null_mut();
-        let path = NonNull::new(unsafe {
+        let mut raw_hostname = std::ptr::null_mut();
+        let raw_path = NonNull::new(unsafe {
             let _life = self.life.inner.lock();
-            lib::lilv_node_get_path(node, &mut hostname)
+            lib::lilv_node_get_path(node, &mut raw_hostname)
         })?;
 
         unsafe {
-            let rusty_path = CStr::from_ptr(path.as_ptr()).to_string_lossy().into_owned();
-            let rusty_hostname = CStr::from_ptr(hostname).to_string_lossy().into_owned();
+            let path = CStr::from_ptr(raw_path.as_ptr())
+                .to_string_lossy()
+                .into_owned();
+            let hostname = CStr::from_ptr(raw_hostname).to_string_lossy().into_owned();
 
             let _life = self.life.inner.lock();
-            serd_free(path.as_ptr().cast());
-            serd_free(hostname.cast());
+            serd_free(raw_path.as_ptr().cast());
+            serd_free(raw_hostname.cast());
 
-            Some((rusty_path, rusty_hostname))
+            Some((path, hostname))
         }
     }
 
@@ -192,15 +192,15 @@ impl PartialEq for Node {
 
 impl Drop for Node {
     fn drop(&mut self) {
-        let _life = self.life.inner.lock();
         if !self.borrowed {
+            let _life = self.life.inner.lock();
             unsafe { lib::lilv_node_free(self.inner.as_ptr()) }
         }
     }
 }
 
 pub struct Nodes {
-    pub(crate) inner: NonNull<lib::LilvNodes>,
+    pub(crate) inner: *const lib::LilvNodes,
     pub(crate) life: Arc<Life>,
 }
 
@@ -208,13 +208,13 @@ impl Nodes {
     #[must_use]
     pub fn size(&self) -> usize {
         let _life = self.life.inner.lock();
-        unsafe { lib::lilv_nodes_size(self.inner.as_ptr()) as _ }
+        unsafe { lib::lilv_nodes_size(self.inner) as _ }
     }
 
     #[must_use]
     pub fn contains(&self, value: &Node) -> bool {
         let _life = self.life.inner.lock();
-        let inner = self.inner.as_ptr();
+        let inner = self.inner;
         let value = value.inner.as_ptr();
 
         unsafe { lib::lilv_nodes_contains(inner, value) }
@@ -225,11 +225,11 @@ impl Nodes {
     #[must_use]
     pub fn merge(&self, other: &Self) -> Self {
         let _life = self.life.inner.lock();
-        let a = self.inner.as_ptr();
-        let b = other.inner.as_ptr();
+        let a = self.inner;
+        let b = other.inner;
 
         Nodes {
-            inner: NonNull::new(unsafe { lib::lilv_nodes_merge(a, b) }).unwrap(),
+            inner: unsafe { lib::lilv_nodes_merge(a, b) },
             life: self.life.clone(),
         }
     }
@@ -238,7 +238,7 @@ impl Nodes {
     pub fn iter(&self) -> NodesIter<'_> {
         let _life = self.life.inner.lock();
         NodesIter {
-            inner: unsafe { lib::lilv_nodes_begin(self.inner.as_ptr()) },
+            inner: unsafe { lib::lilv_nodes_begin(self.inner) },
             life: self.life.clone(),
             nodes: self,
         }
@@ -256,7 +256,7 @@ impl<'a> Iterator for NodesIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let _life = self.life.inner.lock();
-        let node = unsafe { lib::lilv_nodes_get(self.nodes.inner.as_ptr(), self.inner) } as *mut _;
+        let node = unsafe { lib::lilv_nodes_get(self.nodes.inner, self.inner) } as *mut _;
         let next = Some({
             let ptr = NonNull::new(node)?;
             let world = self.life.clone();
@@ -266,7 +266,26 @@ impl<'a> Iterator for NodesIter<'a> {
                 life: world,
             }
         });
-        self.inner = unsafe { lib::lilv_nodes_next(self.nodes.inner.as_ptr(), self.inner) };
+        self.inner = unsafe { lib::lilv_nodes_next(self.nodes.inner, self.inner) };
         next
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::World;
+
+    #[test]
+    fn test_null_nodes() {
+        let world = World::new();
+        let nodes = Nodes {
+            inner: std::ptr::null(),
+            life: world.life,
+        };
+        assert_eq!(nodes.size(), 0);
+        for n in nodes.iter() {
+            panic!("Should not have any nodes but found {}", n.turtle_token());
+        }
     }
 }

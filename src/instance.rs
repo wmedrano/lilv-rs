@@ -114,3 +114,43 @@ impl ActiveInstance {
         Some(inner)
     }
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use std::collections::HashSet;
+
+//     use crate::*;
+
+//     const SAMPLE_RATE: f64 = 44100.0;
+
+//     #[test]
+//     fn test_activate_all_plugins() {
+//         let world = World::with_load_all();
+//         let have_features = HashSet::<String>::new();
+//         for plugin in world.plugins() {
+//             let plugin_name = plugin.name().as_str().unwrap().to_string();
+//             let required_features = plugin.required_features();
+//             for feature in required_features.iter() {
+//                 let feature_name = feature.as_str().unwrap();
+//                 if !have_features.contains(feature_name) {
+//                     continue;
+//                 }
+//             }
+//             let instance = match unsafe { plugin.instantiate(SAMPLE_RATE, &[]) } {
+//                 Some(i) => i,
+//                 None => {
+//                     println!("{}: Failed to instantiate.", plugin_name);
+//                     continue;
+//                 }
+//             };
+//             let active_instance = match unsafe { instance.activate() } {
+//                 Some(i) => i,
+//                 None => {
+//                     println!("{}: Failed to activate.", plugin_name);
+//                     continue;
+//                 }
+//             };
+//             unsafe { active_instance.deactivate().unwrap() };
+//         }
+//     }
+// }

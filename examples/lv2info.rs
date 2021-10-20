@@ -24,7 +24,7 @@ fn print_port(p: &lilv::Plugin, index: usize, port_ranges: &FloatPortRanges, nod
 
     print!("\t\tType:        ");
 
-    for (i, value) in port.classes().unwrap().iter().enumerate() {
+    for (i, value) in port.classes().iter().enumerate() {
         if i != 0 {
             print!("\n\t\t             ");
         }
@@ -32,12 +32,11 @@ fn print_port(p: &lilv::Plugin, index: usize, port_ranges: &FloatPortRanges, nod
     }
 
     if port.is_a(&nodes.event_class) {
-        if let Some(supported) = port.value(&nodes.supports_event_pred) {
-            if supported.size() > 0 {
-                println!("\n\t\tSupported events:\n");
-                for value in supported.iter() {
-                    println!("\t\t\t{}", value.as_uri().unwrap());
-                }
+        let supported = port.value(&nodes.supports_event_pred);
+        if supported.size() > 0 {
+            println!("\n\t\tSupported events:\n");
+            for value in supported.iter() {
+                println!("\t\t\t{}", value.as_uri().unwrap());
             }
         }
     }
@@ -62,16 +61,14 @@ fn print_port(p: &lilv::Plugin, index: usize, port_ranges: &FloatPortRanges, nod
         port.name().unwrap().as_str().unwrap(),
     );
 
-    if let Some(groups) = port.value(&nodes.group_pred) {
-        if let Some(group) = groups.iter().next() {
-            println!("\t\tGroup:       {}", group.as_str().unwrap(),);
-        }
+    let groups = port.value(&nodes.group_pred);
+    if let Some(group) = groups.iter().next() {
+        println!("\t\tGroup:       {}", group.as_str().unwrap(),);
     }
 
-    if let Some(designations) = port.value(&nodes.designation_pred) {
-        if let Some(designation) = designations.iter().next() {
-            println!("\t\tDesignation: {}", designation.as_str().unwrap(),);
-        }
+    let designations = port.value(&nodes.designation_pred);
+    if let Some(designation) = designations.iter().next() {
+        println!("\t\tDesignation: {}", designation.as_str().unwrap(),);
     }
 
     if port.is_a(&nodes.control_class) {
@@ -89,15 +86,14 @@ fn print_port(p: &lilv::Plugin, index: usize, port_ranges: &FloatPortRanges, nod
             println!("\t\tDefault:     {}", def);
         }
 
-        if let Some(properties) = port.properties() {
-            for (i, property) in properties.iter().enumerate() {
-                if i != 0 {
-                    print!("\t\t             ");
-                }
-                println!("{}", property.as_uri().unwrap());
+        let properties = port.properties();
+        for (i, property) in properties.iter().enumerate() {
+            if i != 0 {
+                print!("\t\t             ");
             }
-            println!();
+            println!("{}", property.as_uri().unwrap());
         }
+        println!();
     }
 }
 
@@ -146,7 +142,7 @@ fn print_plugin(world: &lilv::World, p: &lilv::Plugin, nodes: &Nodes) {
         for ui in uis.iter() {
             println!("\t\t{}", ui.uri().as_uri().unwrap());
 
-            for tyep in ui.classes().unwrap().iter() {
+            for tyep in ui.classes().iter() {
                 println!("\t\t\tClass:  {}", tyep.as_uri().unwrap());
             }
 
@@ -173,29 +169,27 @@ fn print_plugin(world: &lilv::World, p: &lilv::Plugin, nodes: &Nodes) {
 
     println!();
 
-    if let Some(features) = p.required_features() {
-        print!("\tRequired Features: ");
+    let features = p.required_features();
+    print!("\tRequired Features: ");
 
-        for (i, feature) in features.iter().enumerate() {
-            if i != 0 {
-                print!("\n\t                   ");
-            }
-            print!("{}", feature.as_uri().unwrap());
+    for (i, feature) in features.iter().enumerate() {
+        if i != 0 {
+            print!("\n\t                   ");
         }
-        println!();
+        print!("{}", feature.as_uri().unwrap());
     }
+    println!();
 
-    if let Some(features) = p.optional_features() {
-        print!("\tOptional Features: ");
+    let features = p.optional_features();
+    print!("\tOptional Features: ");
 
-        for (i, feature) in features.iter().enumerate() {
-            if i != 0 {
-                print!("\n\t                   ");
-            }
-            print!("{}", feature.as_uri().unwrap());
+    for (i, feature) in features.iter().enumerate() {
+        if i != 0 {
+            print!("\n\t                   ");
         }
-        println!();
+        print!("{}", feature.as_uri().unwrap());
     }
+    println!();
 
     if let Some(data) = p.extension_data() {
         print!("\tExtension Data:    ");
@@ -216,7 +210,8 @@ fn print_plugin(world: &lilv::World, p: &lilv::Plugin, nodes: &Nodes) {
             for preset in presets.iter() {
                 world.load_resource(&preset).unwrap();
 
-                if let Some(titles) = world.find_nodes(Some(&preset), &nodes.label_pred, None) {
+                let titles = world.find_nodes(Some(&preset), &nodes.label_pred, None);
+                if titles.size() > 0 {
                     if let Some(title) = titles.iter().next() {
                         println!("\t         {}", title.as_str().unwrap());
                     } else {
