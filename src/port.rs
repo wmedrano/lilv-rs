@@ -163,6 +163,7 @@ impl<'a> Port<'a> {
 
     /// # Panics
     /// Panics if the range could not be obtained.
+    #[must_use]
     pub fn range(&self) -> PortRange {
         let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
@@ -181,8 +182,8 @@ impl<'a> Port<'a> {
                 &mut maximum_ptr,
             );
         };
-        let ptr_to_node = |ptr| -> Option<Node> {
-            let ptr = NonNull::new(ptr as _)?;
+        let ptr_to_node = |ptr: *mut lib::LilvNodeImpl| -> Option<Node> {
+            let ptr = NonNull::new(ptr.cast())?;
             let world = self.plugin.life.clone();
             Some(Node {
                 inner: ptr,
@@ -301,6 +302,7 @@ impl<'a> Iterator for ScalePointsIter<'a> {
 }
 
 /// Describe the ranges of the port if possible.
+#[allow(clippy::module_name_repetitions)]
 pub struct PortRange {
     /// The default value of the port.
     pub default: Option<Node>,

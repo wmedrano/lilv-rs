@@ -1,14 +1,17 @@
 use lilv_sys as lib;
 use lv2_raw::core::LV2Descriptor;
 use lv2_raw::core::LV2Handle;
+use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::ptr::NonNull;
 
+#[allow(clippy::module_name_repetitions)]
 pub struct Instance {
     pub(crate) inner: NonNull<lib::LilvInstanceImpl>,
     pub(crate) active: bool,
 }
 
+#[allow(clippy::module_name_repetitions)]
 pub struct ActiveInstance {
     pub(crate) inner: Instance,
 }
@@ -28,9 +31,10 @@ impl Instance {
     /// # Safety
     /// Connecting a port calls a plugin's code, which itself may be unsafe.
     pub unsafe fn connect_port<T>(&mut self, port_index: usize, data: &mut T) {
-        if port_index >= std::u32::MAX as _ {
-            return;
-        }
+        let port_index = match u32::try_from(port_index) {
+            Ok(port_index) => port_index,
+            Err(_) => return,
+        };
         let data_ptr: *mut T = data;
         ((*self.inner.as_ref().lv2_descriptor).connect_port)(
             self.inner.as_ref().lv2_handle,
@@ -41,6 +45,7 @@ impl Instance {
 
     /// # Safety
     /// Calling external code may be unsafe.
+    #[must_use]
     pub unsafe fn activate(self) -> Option<ActiveInstance> {
         let activate_fn = (*self.inner.as_ref().lv2_descriptor).activate?;
         activate_fn(self.inner.as_ref().lv2_handle);
@@ -54,12 +59,14 @@ impl Instance {
     #[must_use]
     pub unsafe fn extension_data<T>(&self, uri: &str) -> Option<NonNull<T>> {
         let uri = std::ffi::CString::new(uri).ok()?;
-        NonNull::new((self.descriptor().extension_data)(uri.as_ptr().cast()) as _)
+        NonNull::new(
+            ((*(self.inner.as_ref().lv2_descriptor)).extension_data)(uri.as_ptr().cast()) as _,
+        )
     }
 
     #[must_use]
-    pub fn descriptor(&self) -> &LV2Descriptor {
-        unsafe { self.inner.as_ref().lv2_descriptor.as_ref().unwrap() }
+    pub fn descriptor(&self) -> Option<&LV2Descriptor> {
+        unsafe { self.inner.as_ref().lv2_descriptor.as_ref() }
     }
 
     #[must_use]
@@ -98,6 +105,7 @@ impl ActiveInstance {
 
     /// # Safety
     /// Calling external code may be unsafe.
+    #[must_use]
     pub unsafe fn deactivate(self) -> Option<Instance> {
         let deactivate_fn = (*self.inner.inner.as_ref().lv2_descriptor).deactivate?;
         deactivate_fn(self.inner.inner.as_ref().lv2_handle);

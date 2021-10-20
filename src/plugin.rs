@@ -330,15 +330,19 @@ impl Plugin {
 
     /// The designation of a port describes the meaning, assignment, allocation
     /// or role of the port, e.g. "left channel" or "gain". If found, the port
-    /// with matching port_class and designation is be returned, otherwise NULL
-    /// is returned. The port_class can be used to distinguish the input and
-    /// output ports for a particular designation. If port_class is NULL, any
-    /// port with the given designation will be returned.
+    /// with matching `port_class` and designation is be returned, otherwise
+    /// `None` is returned. The `port_class` can be used to distinguish the
+    /// input and output ports for a particular designation. If `port_class` is
+    /// `None`, any port with the given designation will be returned.
     #[must_use]
-    pub fn port_by_designation(&self, port_class: &Node, designation: &Node) -> Option<Port> {
+    pub fn port_by_designation(
+        &self,
+        port_class: Option<&Node>,
+        designation: &Node,
+    ) -> Option<Port> {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
-        let port_class = port_class.inner.as_ptr();
+        let port_class = port_class.map_or(std::ptr::null(), |n| n.inner.as_ptr());
         let designation = designation.inner.as_ptr();
 
         Some({
