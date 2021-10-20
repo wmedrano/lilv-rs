@@ -5,6 +5,7 @@ use crate::port::Port;
 use crate::uis::Uis;
 use crate::world::Life;
 use lilv_sys as lib;
+use std::convert::TryFrom;
 use std::ptr::NonNull;
 use std::sync::Arc;
 
@@ -13,7 +14,7 @@ unsafe impl Sync for Plugin {}
 
 /// Describes the ports of a plugin.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct PortRanges {
+pub struct FloatPortRanges {
     /// The minimum value of the port.
     pub min: f32,
     /// The maximum value of the port.
@@ -167,10 +168,11 @@ impl Plugin {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
 
-        Some(Nodes::new(
-            NonNull::new(unsafe { lib::lilv_plugin_get_supported_features(plugin) })?,
-            self.life.clone(),
-        ))
+        Some({
+            let inner = NonNull::new(unsafe { lib::lilv_plugin_get_supported_features(plugin) })?;
+            let world = self.life.clone();
+            Nodes { inner, life: world }
+        })
     }
 
     /// The set of features that are required to instantiate the plugin.
@@ -179,10 +181,11 @@ impl Plugin {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
 
-        Some(Nodes::new(
-            NonNull::new(unsafe { lib::lilv_plugin_get_required_features(plugin) })?,
-            self.life.clone(),
-        ))
+        Some({
+            let inner = NonNull::new(unsafe { lib::lilv_plugin_get_required_features(plugin) })?;
+            let world = self.life.clone();
+            Nodes { inner, life: world }
+        })
     }
 
     /// The set of features that are optional to instantiate the plugin.
@@ -191,13 +194,14 @@ impl Plugin {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
 
-        Some(Nodes::new(
-            NonNull::new(unsafe { lib::lilv_plugin_get_optional_features(plugin) })?,
-            self.life.clone(),
-        ))
+        Some({
+            let inner = NonNull::new(unsafe { lib::lilv_plugin_get_optional_features(plugin) })?;
+            let world = self.life.clone();
+            Nodes { inner, life: world }
+        })
     }
 
-    /// True if the plugin has extension data for `uri`.
+    /// Returns `true` if the plugin has extension data for `uri`.
     #[must_use]
     pub fn has_extension_data(&self, uri: &Node) -> bool {
         let _life = self.life.inner.lock();
@@ -207,17 +211,20 @@ impl Plugin {
         unsafe { lib::lilv_plugin_has_extension_data(plugin, uri) }
     }
 
+    /// Get a sequence of all extension data provided by a plugin.
     #[must_use]
     pub fn extension_data(&self) -> Option<Nodes> {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
 
-        Some(Nodes::new(
-            NonNull::new(unsafe { lib::lilv_plugin_get_extension_data(plugin) })?,
-            self.life.clone(),
-        ))
+        Some({
+            let inner = NonNull::new(unsafe { lib::lilv_plugin_get_extension_data(plugin) })?;
+            let world = self.life.clone();
+            Nodes { inner, life: world }
+        })
     }
 
+    /// Returns the number of ports.
     #[must_use]
     pub fn num_ports(&self) -> usize {
         let _life = self.life.inner.lock();
@@ -227,7 +234,7 @@ impl Plugin {
 
     /// Return the ranges for all ports.
     #[must_use]
-    pub fn port_ranges_float(&self) -> Vec<PortRanges> {
+    pub fn port_ranges_float(&self) -> Vec<FloatPortRanges> {
         let ports_count = self.num_ports();
         let mut min = vec![0_f32; ports_count];
         let mut max = vec![0_f32; ports_count];
@@ -244,7 +251,7 @@ impl Plugin {
             );
         }
         (0..ports_count)
-            .map(|i| PortRanges {
+            .map(|i| FloatPortRanges {
                 min: min[i],
                 max: max[i],
                 default: default[i],
@@ -252,15 +259,16 @@ impl Plugin {
             .collect()
     }
 
+    /// Returns the number of ports that match all the given classes.
     #[must_use]
     pub fn num_ports_of_class(&self, classes: &[&Node]) -> usize {
-        let _life = self.life.inner.lock();
         (0..self.num_ports())
             .filter_map(|index| self.port_by_index(index))
             .filter(|port| classes.iter().all(|cls| port.is_a(cls)))
             .count()
     }
 
+    /// Returns wether or not the latency port can be found.
     #[must_use]
     pub fn has_latency(&self) -> bool {
         let _life = self.life.inner.lock();
@@ -268,6 +276,7 @@ impl Plugin {
         unsafe { lib::lilv_plugin_has_latency(plugin) }
     }
 
+    /// Return the index of the plugin's latency port or `None` if it does not exist.
     #[must_use]
     pub fn latency_port_index(&self) -> Option<usize> {
         if self.has_latency() {
@@ -279,15 +288,12 @@ impl Plugin {
         }
     }
 
-    #[allow(clippy::cast_possible_truncation)]
+    /// Return the port by index or `None` if it does not exist.
     #[must_use]
     pub fn port_by_index(&self, index: usize) -> Option<Port> {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
-
-        if index > std::u32::MAX as _ {
-            return None;
-        }
+        let index = u32::try_from(index).ok()?;
 
         Some({
             let inner = NonNull::new(unsafe {
@@ -300,6 +306,10 @@ impl Plugin {
         })
     }
 
+    //// Get the port by the symbol.
+    ///
+    ///  Note: This function is slower than `port_by_index`, especially on
+    ///  plugins with a very large number of ports.
     #[must_use]
     pub fn port_by_symbol(&self, symbol: &Node) -> Option<Port> {
         let _life = self.life.inner.lock();
@@ -316,6 +326,14 @@ impl Plugin {
         })
     }
 
+    /// Get a port on plugin by its lv2:designation.
+
+    /// The designation of a port describes the meaning, assignment, allocation
+    /// or role of the port, e.g. "left channel" or "gain". If found, the port
+    /// with matching port_class and designation is be returned, otherwise NULL
+    /// is returned. The port_class can be used to distinguish the input and
+    /// output ports for a particular designation. If port_class is NULL, any
+    /// port with the given designation will be returned.
     #[must_use]
     pub fn port_by_designation(&self, port_class: &Node, designation: &Node) -> Option<Port> {
         let _life = self.life.inner.lock();
@@ -334,6 +352,9 @@ impl Plugin {
         })
     }
 
+    /// Get the project the plugin is a part of.
+    ///
+    /// More information about the project can be read with `World::find_nodes`.
     #[must_use]
     pub fn project(&self) -> Option<Node> {
         let _life = self.life.inner.lock();
@@ -350,6 +371,7 @@ impl Plugin {
         })
     }
 
+    /// Returns the author name if present.
     #[must_use]
     pub fn author_name(&self) -> Option<Node> {
         let _life = self.life.inner.lock();
@@ -366,6 +388,7 @@ impl Plugin {
         })
     }
 
+    /// Returns the author email if present.
     #[must_use]
     pub fn author_email(&self) -> Option<Node> {
         let _life = self.life.inner.lock();
@@ -396,6 +419,10 @@ impl Plugin {
         })
     }
 
+    /// `true` if the plugin has been replaced by another plugin.
+    ///
+    /// The plugin will still be usable, but hosts should hide them from their
+    /// user interfaces to prevent users fromusing deprecated plugins.
     #[must_use]
     pub fn is_replaced(&self) -> bool {
         let _life = self.life.inner.lock();
@@ -403,22 +430,32 @@ impl Plugin {
         unsafe { lib::lilv_plugin_is_replaced(plugin) }
     }
 
-    // MAYBE TODO write_description
-
-    // MAYBE TODO write_manifest_entry
-
+    /// Get the resources related to plugin with lv2:appliesTo.
+    ///
+    /// Some plugin-related resources are not linked directly to the plugin with
+    /// rdfs:seeAlso and thus will not be automatically loaded along with the
+    /// plugin data (usually for performance reasons). All such resources of the
+    /// given type related to plugin can be accessed with this function.
+    ///
+    /// If typ is `None`, all such resources will be returned, regardless of
+    /// type.
+    ///
+    /// To actually load the data for each returned resource, use
+    /// `World::load_resource()`.
     #[must_use]
     pub fn related(&self, typ: Option<&Node>) -> Option<Nodes> {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
         let plugin_type = typ.map_or(std::ptr::null(), |n| n.inner.as_ptr() as _);
 
-        Some(Nodes::new(
-            NonNull::new(unsafe { lib::lilv_plugin_get_related(plugin, plugin_type) })?,
-            self.life.clone(),
-        ))
+        Some({
+            let inner = NonNull::new(unsafe { lib::lilv_plugin_get_related(plugin, plugin_type) })?;
+            let world = self.life.clone();
+            Nodes { inner, life: world }
+        })
     }
 
+    /// Get all UIs for plugin.
     #[must_use]
     pub fn uis(&self) -> Option<Uis<'_>> {
         let _life = self.life.inner.lock();
@@ -431,6 +468,8 @@ impl Plugin {
         })
     }
 
+    /// Instantiate a plugin.
+    ///
     /// # Safety
     /// Instantiating a plugin calls the plugin's code which itself may be
     /// unsafe.
@@ -438,16 +477,22 @@ impl Plugin {
     pub unsafe fn instantiate(
         &self,
         sample_rate: f64,
-        features: *const *const lv2_raw::LV2Feature,
+        features: &[lv2_raw::LV2Feature],
     ) -> Option<Instance> {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
+        let feature_pointers: Vec<*const lv2_raw::LV2Feature> = features
+            .iter()
+            .map(|f| f as *const _)
+            .chain(std::iter::once(std::ptr::null()))
+            .collect();
+        let inner = NonNull::new(
+            (lib::lilv_plugin_instantiate(plugin, sample_rate, feature_pointers.as_ptr())).cast(),
+        )?;
 
         Some(Instance {
-            inner: NonNull::new(
-                (lib::lilv_plugin_instantiate(plugin, sample_rate, std::mem::transmute(features)))
-                    .cast(),
-            )?,
+            inner,
+            active: false,
         })
     }
 }

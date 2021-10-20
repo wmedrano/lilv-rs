@@ -35,6 +35,75 @@ impl World {
         }
     }
 
+    /// Loads a new world with all the installed LV2 bundles on the system.
+    ///
+    /// # Example
+    /// ```
+    /// let world = lilv::World::new();
+    /// world.load_all();
+    /// ```
+    #[must_use]
+    pub fn with_load_all() -> World {
+        let world = World::new();
+        world.load_all();
+        world
+    }
+}
+
+impl World {
+    /// Get the parent of all other plugin classes, lv2:Plugin.
+    #[must_use]
+    pub fn plugin_class(&self) -> Option<PluginClass> {
+        let world = self.life.inner.lock();
+        Some(PluginClass::new_borrowed(
+            NonNull::new(unsafe { lib::lilv_world_get_plugin_class(world.as_ptr()) as _ })?,
+            self.life.clone(),
+        ))
+    }
+
+    /// An iterable over all the plugins in the world.
+    #[must_use]
+    pub fn plugins(&self) -> PluginsIter {
+        let world = self.life.inner.lock();
+        let (ptr, iter) = {
+            let ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
+            let iter = unsafe { lib::lilv_plugins_begin(ptr) };
+            (ptr, iter)
+        };
+
+        PluginsIter {
+            life: self.life.clone(),
+            ptr,
+            iter,
+        }
+    }
+
+    /// Get a plugin by its unique identifier.
+    #[must_use]
+    pub fn plugin(&self, uri: &Node) -> Option<Plugin> {
+        let world = self.life.inner.lock();
+        let plugin_ptr: *mut lib::LilvPlugin = {
+            let plugins_ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
+            let uri_ptr = uri.inner.as_ptr();
+            unsafe { lib::lilv_plugins_get_by_uri(plugins_ptr, uri_ptr) }
+        } as _;
+        Some(Plugin {
+            life: self.life.clone(),
+            inner: NonNull::new(plugin_ptr)?,
+        })
+    }
+
+    /// The number of plugins loaded.
+    #[must_use]
+    pub fn plugins_count(&self) -> usize {
+        let world = self.life.inner.lock();
+        let ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
+        let size = unsafe { lib::lilv_plugins_size(ptr) };
+        size as usize
+    }
+}
+
+impl World {
     /// Sets an option for the world.
     /// # Panics
     /// Panics if uri could not be converted to a `CString`.
@@ -45,7 +114,9 @@ impl World {
 
         unsafe { lib::lilv_world_set_option(world.as_ptr(), uri.as_ptr().cast(), value) }
     }
+}
 
+impl World {
     /// Creates a new URI value.
     ///
     /// # Panics
@@ -171,7 +242,9 @@ impl World {
             }
         }
     }
+}
 
+impl World {
     /// Loads all installed LV2 bundles on the system.
     ///
     /// # Example
@@ -259,58 +332,9 @@ impl World {
 
         lib::lilv_world_unload_resource(world.as_ptr(), resource) == 0
     }
+}
 
-    /// Get the parent of all other plugin classes, lv2:Plugin.
-    #[must_use]
-    pub fn plugin_class(&self) -> Option<PluginClass> {
-        let world = self.life.inner.lock();
-        Some(PluginClass::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_world_get_plugin_class(world.as_ptr()) as _ })?,
-            self.life.clone(),
-        ))
-    }
-
-    /// An iterable over all the plugins in the world.
-    #[must_use]
-    pub fn plugins(&self) -> PluginsIter {
-        let world = self.life.inner.lock();
-        let (ptr, iter) = {
-            let ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
-            let iter = unsafe { lib::lilv_plugins_begin(ptr) };
-            (ptr, iter)
-        };
-
-        PluginsIter {
-            life: self.life.clone(),
-            ptr,
-            iter,
-        }
-    }
-
-    /// Get a plugin by its unique identifier.
-    #[must_use]
-    pub fn plugin(&self, uri: &Node) -> Option<Plugin> {
-        let world = self.life.inner.lock();
-        let plugin_ptr: *mut lib::LilvPlugin = {
-            let plugins_ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
-            let uri_ptr = uri.inner.as_ptr();
-            unsafe { lib::lilv_plugins_get_by_uri(plugins_ptr, uri_ptr) }
-        } as _;
-        Some(Plugin {
-            life: self.life.clone(),
-            inner: NonNull::new(plugin_ptr)?,
-        })
-    }
-
-    /// The number of plugins loaded.
-    #[must_use]
-    pub fn plugins_count(&self) -> usize {
-        let world = self.life.inner.lock();
-        let ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
-        let size = unsafe { lib::lilv_plugins_size(ptr) };
-        size as usize
-    }
-
+impl World {
     /// Find nodes matching a triple pattern. Either subject or object may be `None`, but not both.
     #[must_use]
     pub fn find_nodes(
@@ -324,12 +348,13 @@ impl World {
         let predicate = predicate.inner.as_ptr();
         let object = object.map_or(std::ptr::null(), |n| n.inner.as_ptr() as _);
 
-        Some(Nodes::new(
-            NonNull::new(unsafe {
+        Some({
+            let inner = NonNull::new(unsafe {
                 lib::lilv_world_find_nodes(world.as_ptr(), subject, predicate, object)
-            })?,
-            self.life.clone(),
-        ))
+            })?;
+            let world = self.life.clone();
+            Nodes { inner, life: world }
+        })
     }
 
     /// Find a single node that matches a pattern. Exactly one of `subject`, `predicate`, or

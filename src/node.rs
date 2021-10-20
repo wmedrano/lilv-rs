@@ -206,11 +206,6 @@ pub struct Nodes {
 
 impl Nodes {
     #[must_use]
-    pub(crate) fn new(inner: NonNull<lib::LilvNodes>, world: Arc<Life>) -> Self {
-        Self { inner, life: world }
-    }
-
-    #[must_use]
     pub fn size(&self) -> usize {
         let _life = self.life.inner.lock();
         unsafe { lib::lilv_nodes_size(self.inner.as_ptr()) as _ }

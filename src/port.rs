@@ -35,10 +35,11 @@ impl<'a> Port<'a> {
         let port = self.inner.as_ptr();
         let predicate = predicate.inner.as_ptr();
 
-        Some(Nodes::new(
-            NonNull::new(unsafe { lib::lilv_port_get_value(plugin, port, predicate) })?,
-            self.plugin.life.clone(),
-        ))
+        Some({
+            let inner = NonNull::new(unsafe { lib::lilv_port_get_value(plugin, port, predicate) })?;
+            let world = self.plugin.life.clone();
+            Nodes { inner, life: world }
+        })
     }
 
     #[must_use]
@@ -65,10 +66,11 @@ impl<'a> Port<'a> {
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
 
-        Some(Nodes::new(
-            NonNull::new(unsafe { lib::lilv_port_get_properties(plugin, port) })?,
-            self.plugin.life.clone(),
-        ))
+        Some({
+            let inner = NonNull::new(unsafe { lib::lilv_port_get_properties(plugin, port) })?;
+            let world = self.plugin.life.clone();
+            Nodes { inner, life: world }
+        })
     }
 
     #[must_use]
@@ -141,10 +143,11 @@ impl<'a> Port<'a> {
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
 
-        Nodes::new(
-            NonNull::new(unsafe { lib::lilv_port_get_classes(plugin, port) as _ })?,
-            self.plugin.life.clone(),
-        )
+        {
+            let inner = NonNull::new(unsafe { lib::lilv_port_get_classes(plugin, port) as _ })?;
+            let world = self.plugin.life.clone();
+            Nodes { inner, life: world }
+        }
         .into()
     }
 
@@ -160,70 +163,37 @@ impl<'a> Port<'a> {
 
     /// # Panics
     /// Panics if the range could not be obtained.
-    pub fn range(
-        &self,
-        default: Option<&mut Option<Node>>,
-        minimum: Option<&mut Option<Node>>,
-        maximum: Option<&mut Option<Node>>,
-    ) {
+    pub fn range(&self) -> PortRange {
         let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
 
-        let mut default_ptr = std::ptr::null_mut();
-        let mut minimum_ptr = std::ptr::null_mut();
-        let mut maximum_ptr = std::ptr::null_mut();
+        let mut default_ptr: *mut lib::LilvNodeImpl = std::ptr::null_mut();
+        let mut minimum_ptr: *mut lib::LilvNodeImpl = std::ptr::null_mut();
+        let mut maximum_ptr: *mut lib::LilvNodeImpl = std::ptr::null_mut();
 
         unsafe {
             lib::lilv_port_get_range(
                 plugin,
                 port,
-                default
-                    .as_ref()
-                    .map_or(std::ptr::null_mut(), |_| &mut default_ptr as _),
-                minimum
-                    .as_ref()
-                    .map_or(std::ptr::null_mut(), |_| &mut minimum_ptr as _),
-                maximum
-                    .as_ref()
-                    .map_or(std::ptr::null_mut(), |_| &mut maximum_ptr as _),
+                &mut default_ptr,
+                &mut minimum_ptr,
+                &mut maximum_ptr,
             );
-        }
-
-        if let Some(default) = default {
-            *default = Some({
-                let ptr = NonNull::new(default_ptr).unwrap();
-                let world = self.plugin.life.clone();
-                Node {
-                    inner: ptr,
-                    borrowed: false,
-                    life: world,
-                }
-            });
-        }
-
-        if let Some(minimum) = minimum {
-            *minimum = Some({
-                let ptr = NonNull::new(minimum_ptr).unwrap();
-                let world = self.plugin.life.clone();
-                Node {
-                    inner: ptr,
-                    borrowed: false,
-                    life: world,
-                }
-            });
-        }
-
-        if let Some(maximum) = maximum {
-            *maximum = Some({
-                let ptr = NonNull::new(maximum_ptr).unwrap();
-                let world = self.plugin.life.clone();
-                Node {
-                    inner: ptr,
-                    borrowed: false,
-                    life: world,
-                }
-            });
+        };
+        let ptr_to_node = |ptr| -> Option<Node> {
+            let ptr = NonNull::new(ptr as _)?;
+            let world = self.plugin.life.clone();
+            Some(Node {
+                inner: ptr,
+                borrowed: false,
+                life: world,
+            })
+        };
+        PortRange {
+            default: ptr_to_node(default_ptr),
+            minimum: ptr_to_node(minimum_ptr),
+            maximum: ptr_to_node(maximum_ptr),
         }
     }
 
@@ -328,4 +298,14 @@ impl<'a> Iterator for ScalePointsIter<'a> {
         self.iter = unsafe { lib::lilv_scale_points_next(self.inner.inner, self.iter) };
         next
     }
+}
+
+/// Describe the ranges of the port if possible.
+pub struct PortRange {
+    /// The default value of the port.
+    pub default: Option<Node>,
+    /// The minimum value of the port.
+    pub minimum: Option<Node>,
+    /// The maximum value of the port.
+    pub maximum: Option<Node>,
 }

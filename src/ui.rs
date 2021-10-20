@@ -36,10 +36,11 @@ impl<'a> UI<'a> {
         let _life = self.life.inner.lock();
         let ui = self.inner.as_ptr();
 
-        Some(Nodes::new(
-            NonNull::new(unsafe { lib::lilv_ui_get_classes(ui) as _ })?,
-            self.plugin.life.clone(),
-        ))
+        Some({
+            let inner = NonNull::new(unsafe { lib::lilv_ui_get_classes(ui) as _ })?;
+            let world = self.plugin.life.clone();
+            Nodes { inner, life: world }
+        })
     }
 
     #[must_use]
