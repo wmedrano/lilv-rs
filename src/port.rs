@@ -136,7 +136,7 @@ impl<'a> Port<'a> {
         let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
-        let inner = unsafe { lib::lilv_port_get_classes(plugin, port) as _ };
+        let inner = unsafe { lib::lilv_port_get_classes(plugin, port) };
         let world = self.plugin.life.clone();
         Nodes { inner, life: world }
     }

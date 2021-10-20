@@ -36,7 +36,7 @@ impl<'a> UI<'a> {
         let _life = self.life.inner.lock();
         let ui = self.inner.as_ptr();
 
-        let inner = unsafe { lib::lilv_ui_get_classes(ui) as _ };
+        let inner = unsafe { lib::lilv_ui_get_classes(ui) };
         let world = self.plugin.life.clone();
         Nodes { inner, life: world }
     }

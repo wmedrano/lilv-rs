@@ -83,7 +83,7 @@ impl Plugin {
         let plugin = self.inner.as_ptr();
 
         Nodes {
-            inner: unsafe { lib::lilv_plugin_get_data_uris(plugin) as _ },
+            inner: unsafe { lib::lilv_plugin_get_data_uris(plugin) },
             life: self.life.clone(),
         }
     }
@@ -132,7 +132,7 @@ impl Plugin {
         let plugin = self.inner.as_ptr();
 
         PluginClass::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_plugin_get_class(plugin) as _ }).unwrap(),
+            NonNull::new(unsafe { lib::lilv_plugin_get_class(plugin) as *mut _ }).unwrap(),
             self.life.clone(),
         )
     }

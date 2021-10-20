@@ -273,7 +273,8 @@ impl<'a> Iterator for NodesIter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use super::*;
+    use crate::World;
 
     #[test]
     fn test_null_nodes() {
@@ -283,8 +284,8 @@ mod tests {
             life: world.life,
         };
         assert_eq!(nodes.size(), 0);
-        for _ in nodes.iter() {
-            panic!("Should not have any nodes");
+        for n in nodes.iter() {
+            panic!("Should not have any nodes but found {}", n.turtle_token());
         }
     }
 }
