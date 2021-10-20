@@ -192,6 +192,7 @@ impl PartialEq for Node {
 
 impl Drop for Node {
     fn drop(&mut self) {
+        let _life = self.life.inner.lock();
         if !self.borrowed {
             let _life = self.life.inner.lock();
             unsafe { lib::lilv_node_free(self.inner.as_ptr()) }
