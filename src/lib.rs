@@ -20,21 +20,57 @@ pub use world::*;
 mod tests {
     use super::*;
 
-    #[test]
-    fn it_works() {
-        let world = World::with_load_all();
+    const SAMPLE_RATE: f64 = 44100.0;
 
+    #[test]
+    fn test_all_plugins_uri() {
+        let world = World::with_load_all();
         for plugin in world.plugins() {
-            println!("{:?}", plugin.uri().as_str());
+            assert!(plugin.uri().as_uri().is_some());
+        }
+    }
+
+    #[test]
+    fn test_plugins_end_to_end() {
+        struct TestCase {
+            uri: &'static str,
+            num_ports: usize,
         }
 
-        let node = world.new_uri("http://lv2plug.in/plugins/eg-amp");
-        let plugin = world.plugin(&node).unwrap();
-        assert_eq!(3, plugin.num_ports());
-        println!(
-            "plugin <{}> has {} ports",
-            node.as_uri().unwrap(),
-            plugin.num_ports(),
-        );
+        let world = World::with_load_all();
+        let tests = [TestCase {
+            uri: "http://lv2plug.in/plugins/eg-amp",
+            num_ports: 3,
+        }];
+
+        for test_case in tests {
+            let plugin = world
+                .plugin(&world.new_uri(test_case.uri))
+                .unwrap_or_else(|| {
+                    panic!("{}: Plugin not found.", test_case.uri);
+                });
+            assert_eq!(
+                test_case.num_ports,
+                plugin.num_ports(),
+                "{}: Wrong ports",
+                test_case.uri
+            );
+            let required_features = plugin.required_features();
+            assert_eq!(
+                0,
+                required_features.size(),
+                "{}: Required features not supported but found {:?}",
+                test_case.uri,
+                required_features
+            );
+            let instance = unsafe { plugin.instantiate(SAMPLE_RATE, &[]) }.unwrap_or_else(|| {
+                panic!("{}: Plugin instantiation failed", test_case.uri);
+            });
+            assert!(
+                unsafe { instance.activate() }.is_some(),
+                "{}: Failed to activate",
+                test_case.uri
+            );
+        }
     }
 }

@@ -432,3 +432,25 @@ impl Drop for Life {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_load_all() {
+        let w = World::new();
+        w.load_all();
+    }
+
+    #[test]
+    fn test_new_node() {
+        let w = World::new();
+        assert!(w.new_bool(true).is_bool());
+        assert!(w.new_float(0.1).is_float());
+        assert!(w.new_int(1).is_int());
+        assert!(w.new_file_uri(None, "/some/path").is_uri());
+        assert!(w.new_file_uri(Some("me"), "/some/path").is_uri());
+        assert!(w.new_string("string").is_string());
+    }
+}
