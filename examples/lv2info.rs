@@ -33,7 +33,7 @@ fn print_port(p: &Plugin, index: usize, port_ranges: &FloatRanges, nodes: &Nodes
 
     if port.is_a(&nodes.event_class) {
         let supported = port.value(&nodes.supports_event_pred);
-        if supported.size() > 0 {
+        if supported.count() > 0 {
             println!("\n\t\tSupported events:\n");
             for value in supported {
                 println!("\t\t\t{}", value.as_uri().unwrap());
@@ -204,14 +204,14 @@ fn print_plugin(world: &World, p: &Plugin, nodes: &Nodes) {
     }
 
     if let Some(presets) = p.related(Some(&nodes.preset_class)) {
-        if presets.size() != 0 {
+        if presets.count() != 0 {
             println!("\tPresets: ");
 
             for preset in presets {
                 world.load_resource(&preset).unwrap();
 
                 let titles = world.find_nodes(Some(&preset), &nodes.label_pred, None);
-                if titles.size() > 0 {
+                if titles.count() > 0 {
                     if let Some(title) = titles.iter().next() {
                         println!("\t         {}", title.as_str().unwrap());
                     } else {
@@ -224,7 +224,7 @@ fn print_plugin(world: &World, p: &Plugin, nodes: &Nodes) {
         }
     }
 
-    let num_ports = p.num_ports();
+    let num_ports = p.ports_count();
     let port_ranges = p.port_ranges_float();
     assert_eq!(num_ports, port_ranges.len());
     for (i, pr) in port_ranges.iter().enumerate() {

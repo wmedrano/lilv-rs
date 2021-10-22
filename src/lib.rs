@@ -42,14 +42,14 @@ mod tests {
                 });
             assert_eq!(
                 test_case.num_ports,
-                plugin.num_ports(),
+                plugin.ports_count(),
                 "{}: Wrong ports",
                 test_case.uri
             );
             let required_features = plugin.required_features();
             assert_eq!(
                 0,
-                required_features.size(),
+                required_features.count(),
                 "{}: Required features not supported but found {:?}",
                 test_case.uri,
                 required_features

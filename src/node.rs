@@ -215,7 +215,7 @@ pub struct Nodes {
 
 impl Nodes {
     #[must_use]
-    pub fn size(&self) -> usize {
+    pub fn count(&self) -> usize {
         let _life = self.life.inner.lock();
         unsafe { lib::lilv_nodes_size(self.inner) as _ }
     }
@@ -318,7 +318,7 @@ mod tests {
             inner: std::ptr::null(),
             life: world.life,
         };
-        assert_eq!(nodes.size(), 0);
+        assert_eq!(nodes.count(), 0);
         for n in nodes {
             panic!("Should not have any nodes but found {}", n.turtle_token());
         }

@@ -207,7 +207,7 @@ impl Plugin {
 
     /// Returns the number of ports.
     #[must_use]
-    pub fn num_ports(&self) -> usize {
+    pub fn ports_count(&self) -> usize {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
         unsafe { lib::lilv_plugin_get_num_ports(plugin) as _ }
@@ -216,7 +216,7 @@ impl Plugin {
     /// Return the ranges for all ports.
     #[must_use]
     pub fn port_ranges_float(&self) -> Vec<FloatRanges> {
-        let ports_count = self.num_ports();
+        let ports_count = self.ports_count();
         let mut min = vec![0_f32; ports_count];
         let mut max = vec![0_f32; ports_count];
         let mut default = vec![0_f32; ports_count];
@@ -243,7 +243,7 @@ impl Plugin {
     /// Returns the number of ports that match all the given classes.
     #[must_use]
     pub fn num_ports_of_class(&self, classes: &[&Node]) -> usize {
-        (0..self.num_ports())
+        (0..self.ports_count())
             .filter_map(|index| self.port_by_index(index))
             .filter(|port| classes.iter().all(|cls| port.is_a(cls)))
             .count()
@@ -266,6 +266,14 @@ impl Plugin {
             Some(unsafe { lib::lilv_plugin_get_latency_port_index(plugin) as _ })
         } else {
             None
+        }
+    }
+
+    /// Iterate through all the ports.
+    pub fn iter_ports(&self) -> impl Iterator<Item = Port> {
+        PortsIter {
+            plugin: self.clone(),
+            index: 0,
         }
     }
 
@@ -562,5 +570,21 @@ where
             }),
             None => None,
         }
+    }
+}
+
+/// Can be used to instantiave LV2 plugins.
+struct PortsIter {
+    pub(crate) plugin: Plugin,
+    pub(crate) index: usize,
+}
+
+impl Iterator for PortsIter {
+    type Item = Port;
+
+    fn next(&mut self) -> Option<Port> {
+        let index = self.index;
+        self.index += 1;
+        self.plugin.port_by_index(index)
     }
 }

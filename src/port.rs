@@ -257,7 +257,7 @@ pub struct ScalePoints {
 
 impl ScalePoints {
     #[must_use]
-    pub fn size(&self) -> usize {
+    pub fn count(&self) -> usize {
         let _life = self.port.plugin.life.inner.lock();
         let size: u32 = unsafe { lib::lilv_scale_points_size(self.inner) };
         size as usize

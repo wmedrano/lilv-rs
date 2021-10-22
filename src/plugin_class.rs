@@ -101,7 +101,7 @@ impl PluginClasses {
     }
 
     #[must_use]
-    pub fn size(&self) -> usize {
+    pub fn count(&self) -> usize {
         let _life = self.life.inner.lock();
         unsafe { lib::lilv_plugin_classes_size(self.inner.as_ptr()) as _ }
     }
