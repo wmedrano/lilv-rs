@@ -1,8 +1,12 @@
 [package]
 authors = ["Will Medrano <will.s.medrano@gmail.com", "Henna Haahti <grejppi@gmail.com>"]
 build = "build.rs"
+description = "Library for discovering and running LV2 plugins."
 edition = "2018"
+keywords = ["lilv", "lv2", "audio"]
+license = "MIT"
 name = "lilv"
+readme = "README.md"
 version = "0.0.1"
 
 [dependencies]
