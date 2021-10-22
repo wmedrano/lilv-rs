@@ -192,8 +192,7 @@ mod tests {
                 .map(|p| {
                     p.range()
                         .default
-                        .map(|n| n.as_float().unwrap_or(0.0))
-                        .unwrap_or(0.0)
+                        .map_or(0.0, |n| n.as_float().unwrap_or(0.0))
                 })
                 .collect();
             for (index, value) in port_values.iter_mut().enumerate() {
