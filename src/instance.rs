@@ -8,7 +8,6 @@ use std::ptr::NonNull;
 #[allow(clippy::module_name_repetitions)]
 pub struct Instance {
     pub(crate) inner: NonNull<lib::LilvInstanceImpl>,
-    pub(crate) active: bool,
 }
 
 #[allow(clippy::module_name_repetitions)]
@@ -49,9 +48,7 @@ impl Instance {
     pub unsafe fn activate(self) -> Option<ActiveInstance> {
         let activate_fn = (*self.inner.as_ref().lv2_descriptor).activate?;
         activate_fn(self.inner.as_ref().lv2_handle);
-        let mut inner = self;
-        inner.active = true;
-        Some(ActiveInstance { inner })
+        Some(ActiveInstance { inner: self })
     }
 
     /// # Safety
@@ -77,13 +74,6 @@ impl Instance {
 
 impl Drop for Instance {
     fn drop(&mut self) {
-        if self.active {
-            if let Some(deactivate_fn) = unsafe { (*self.inner.as_ref().lv2_descriptor).deactivate }
-            {
-                unsafe { deactivate_fn(self.inner.as_ref().lv2_handle) };
-                self.active = false;
-            }
-        }
         unsafe { lib::lilv_instance_free(self.inner.as_ptr().cast()) };
     }
 }
@@ -107,11 +97,26 @@ impl ActiveInstance {
     /// Calling external code may be unsafe.
     #[must_use]
     pub unsafe fn deactivate(self) -> Option<Instance> {
-        let deactivate_fn = (*self.inner.inner.as_ref().lv2_descriptor).deactivate?;
-        deactivate_fn(self.inner.inner.as_ref().lv2_handle);
-        let mut inner = self.inner;
-        inner.active = false;
-        Some(inner)
+        let mut active_instance = self;
+        let instance = active_instance
+            .deactive_impl()
+            .map(|i| Instance { inner: i })?;
+        // Prevent running deactivate twice since we manually called the drop
+        // side-effects with `deactivate_impl`..
+        std::mem::forget(active_instance);
+        Some(instance)
+    }
+
+    fn deactive_impl(&mut self) -> Option<NonNull<lib::LilvInstanceImpl>> {
+        let deactivate_fn = unsafe { (*self.inner.inner.as_ref().lv2_descriptor).deactivate }?;
+        unsafe { deactivate_fn(self.inner.inner.as_ref().lv2_handle) };
+        Some(self.inner.inner)
+    }
+}
+
+impl Drop for ActiveInstance {
+    fn drop(&mut self) {
+        self.deactive_impl();
     }
 }
 

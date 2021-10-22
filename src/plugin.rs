@@ -484,10 +484,7 @@ impl Plugin {
             features.as_ptr(),
         ))?;
 
-        Some(Instance {
-            inner,
-            active: false,
-        })
+        Some(Instance { inner })
     }
 }
 
