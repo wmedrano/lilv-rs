@@ -2,6 +2,7 @@ use crate::world::Life;
 use lilv_sys as lib;
 use std::borrow::Borrow;
 use std::ffi::CStr;
+use std::fmt::Debug;
 use std::ptr::NonNull;
 use std::sync::Arc;
 
@@ -184,7 +185,7 @@ impl Clone for Node {
     }
 }
 
-impl std::fmt::Debug for Node {
+impl Debug for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Node")
             .field("turtle_token", &self.turtle_token())
@@ -253,7 +254,7 @@ impl Nodes {
     }
 }
 
-impl std::fmt::Debug for Nodes {
+impl Debug for Nodes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let nodes = self.iter().collect::<Vec<_>>();
         f.debug_struct("Nodes").field("nodes", &nodes).finish()

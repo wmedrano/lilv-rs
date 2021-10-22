@@ -6,6 +6,7 @@ use crate::world::Life;
 use lilv_sys as lib;
 use std::borrow::Borrow;
 use std::convert::TryFrom;
+use std::fmt::Debug;
 use std::ptr::NonNull;
 use std::sync::Arc;
 
@@ -121,10 +122,15 @@ impl Plugin {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
 
-        PluginClass::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_plugin_get_class(plugin) as *mut _ }).unwrap(),
-            self.life.clone(),
-        )
+        {
+            let ptr =
+                NonNull::new(unsafe { lib::lilv_plugin_get_class(plugin) as *mut _ }).unwrap();
+            let world = self.life.clone();
+            PluginClass {
+                inner: ptr,
+                life: world,
+            }
+        }
     }
 
     /// The value of the predicate. `Nodes` may be empty if the plugin does not
@@ -488,6 +494,27 @@ impl Plugin {
     }
 }
 
+impl Debug for Plugin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Plugin")
+            .field("uri", &self.uri())
+            .field("bundle_uri", &self.bundle_uri())
+            .field("data_uris", &self.data_uris())
+            .field("library_uri", &self.library_uri())
+            .field("class", &self.class())
+            .field("required_features", &self.required_features())
+            .field("optional_features", &self.optional_features())
+            .field("ports_count", &self.ports_count())
+            .field("has_latency", &self.has_latency())
+            .field("project", &self.project())
+            .field("author_name", &self.author_name())
+            .field("author_email", &self.author_email())
+            .field("author_homepage", &self.author_homepage())
+            .field("is_replaced", &self.is_replaced())
+            .finish()
+    }
+}
+
 pub struct Plugins {
     pub(crate) life: Arc<Life>,
     pub(crate) ptr: *const lib::LilvPlugins,
@@ -590,50 +617,10 @@ unsafe impl Sync for PluginClass {}
 
 pub struct PluginClass {
     pub(crate) inner: NonNull<lib::LilvPluginClass>,
-    life: Arc<Life>,
+    pub(crate) life: Arc<Life>,
 }
 
 impl PluginClass {
-    pub(crate) fn new_borrowed(ptr: NonNull<lib::LilvPluginClass>, world: Arc<Life>) -> Self {
-        Self {
-            inner: ptr,
-            life: world,
-        }
-    }
-
-    #[must_use]
-    pub fn parent_uri(&self) -> Option<Node> {
-        let _life = self.life.inner.lock();
-        let inner = self.inner.as_ptr();
-
-        Some({
-            let ptr = NonNull::new(unsafe { lib::lilv_plugin_class_get_parent_uri(inner) as _ })?;
-            let world = self.life.clone();
-            Node {
-                inner: ptr,
-                borrowed: true,
-                life: world,
-            }
-        })
-    }
-
-    #[must_use]
-    pub fn uri(&self) -> Option<Node> {
-        let _life = self.life.inner.lock();
-        let inner = self.inner.as_ptr();
-
-        {
-            let ptr = NonNull::new(unsafe { lib::lilv_plugin_class_get_uri(inner) as _ })?;
-            let world = self.life.clone();
-            Node {
-                inner: ptr,
-                borrowed: true,
-                life: world,
-            }
-        }
-        .into()
-    }
-
     /// # Panics
     /// Panics if the label could not be obtained.
     #[must_use]
@@ -654,6 +641,39 @@ impl PluginClass {
     }
 
     #[must_use]
+    pub fn uri(&self) -> Option<Node> {
+        let _life = self.life.inner.lock();
+        let inner = self.inner.as_ptr();
+
+        {
+            let ptr = NonNull::new(unsafe { lib::lilv_plugin_class_get_uri(inner) as _ })?;
+            let world = self.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: true,
+                life: world,
+            }
+        }
+        .into()
+    }
+
+    #[must_use]
+    pub fn parent_uri(&self) -> Option<Node> {
+        let _life = self.life.inner.lock();
+        let inner = self.inner.as_ptr();
+
+        Some({
+            let ptr = NonNull::new(unsafe { lib::lilv_plugin_class_get_parent_uri(inner) as _ })?;
+            let world = self.life.clone();
+            Node {
+                inner: ptr,
+                borrowed: true,
+                life: world,
+            }
+        })
+    }
+
+    #[must_use]
     pub fn children(&self) -> Option<PluginClasses> {
         let _life = self.life.inner.lock();
         let inner = self.inner.as_ptr();
@@ -662,6 +682,16 @@ impl PluginClass {
             life: self.life.clone(),
         }
         .into()
+    }
+}
+
+impl Debug for PluginClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PluginClass")
+            .field("label", &self.label())
+            .field("uri", &self.uri())
+            .field("parent_uri", &self.parent_uri())
+            .finish()
     }
 }
 
@@ -693,10 +723,15 @@ impl PluginClasses {
         let inner = self.inner.as_ptr();
         let uri = uri.inner.as_ptr();
 
-        Some(PluginClass::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_plugin_classes_get_by_uri(inner, uri) as _ })?,
-            self.life.clone(),
-        ))
+        Some({
+            let ptr =
+                NonNull::new(unsafe { lib::lilv_plugin_classes_get_by_uri(inner, uri) as _ })?;
+            let world = self.life.clone();
+            PluginClass {
+                inner: ptr,
+                life: world,
+            }
+        })
     }
 }
 
@@ -717,10 +752,28 @@ impl Iterator for PluginClassesIter {
             None
         } else {
             self.iter = unsafe { lib::lilv_plugin_classes_next(self.classes, self.iter) };
-            Some(PluginClass::new_borrowed(
-                NonNull::new(ptr as _)?,
-                self.life.clone(),
-            ))
+            Some({
+                let ptr = NonNull::new(ptr as _)?;
+                let world = self.life.clone();
+                PluginClass {
+                    inner: ptr,
+                    life: world,
+                }
+            })
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::world::World;
+
+    #[test]
+    fn test_plugin_format() {
+        let world = World::new();
+        for plugin in world.plugins() {
+            // Just making sure nothing segfaults.
+            format!("{:?}", plugin);
         }
     }
 }

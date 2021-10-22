@@ -1,6 +1,7 @@
 use crate::node::{Node, Nodes};
 use crate::plugin::Plugin;
 use lilv_sys as lib;
+use std::fmt::Debug;
 use std::ptr::NonNull;
 
 #[derive(Clone)]
@@ -202,6 +203,18 @@ impl Port {
     }
 }
 
+impl Debug for Port {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Port")
+            .field("name", &self.name())
+            .field("symbol", &self.symbol())
+            .field("classes", &self.classes())
+            .field("range", &self.range())
+            .field("properties", &self.properties())
+            .finish()
+    }
+}
+
 unsafe impl Send for ScalePoint {}
 unsafe impl Sync for ScalePoint {}
 
@@ -249,6 +262,15 @@ impl ScalePoint {
     }
 }
 
+impl Debug for ScalePoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScalePoint")
+            .field("label", &self.label())
+            .field("value", &self.value())
+            .finish()
+    }
+}
+
 #[derive(Clone)]
 pub struct ScalePoints {
     pub(crate) inner: *const lib::LilvScalePoints,
@@ -270,6 +292,15 @@ impl ScalePoints {
             inner: self.clone(),
             iter: unsafe { lib::lilv_scale_points_begin(self.inner) },
         }
+    }
+}
+
+impl Debug for ScalePoints {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let pts = self.iter().collect::<Vec<_>>();
+        f.debug_struct("ScalePoints")
+            .field("scale_points", &pts)
+            .finish()
     }
 }
 

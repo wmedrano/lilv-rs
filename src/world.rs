@@ -54,10 +54,15 @@ impl World {
     #[must_use]
     pub fn plugin_class(&self) -> Option<PluginClass> {
         let world = self.life.inner.lock();
-        Some(PluginClass::new_borrowed(
-            NonNull::new(unsafe { lib::lilv_world_get_plugin_class(world.as_ptr()) as _ })?,
-            self.life.clone(),
-        ))
+        Some({
+            let ptr =
+                NonNull::new(unsafe { lib::lilv_world_get_plugin_class(world.as_ptr()) as _ })?;
+            let world = self.life.clone();
+            PluginClass {
+                inner: ptr,
+                life: world,
+            }
+        })
     }
 
     /// An iterable over all the plugins in the world.
