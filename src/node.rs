@@ -1,5 +1,6 @@
 use crate::world::Life;
 use lilv_sys as lib;
+use std::borrow::Borrow;
 use std::ffi::CStr;
 use std::ptr::NonNull;
 use std::sync::Arc;
@@ -242,8 +243,7 @@ impl Nodes {
         }
     }
 
-    #[must_use]
-    pub fn iter(&self) -> NodesIter<'_> {
+    pub fn iter(&self) -> impl '_ + Iterator<Item = Node> {
         let _life = self.life.inner.lock();
         NodesIter {
             inner: unsafe { lib::lilv_nodes_begin(self.inner) },
@@ -260,18 +260,38 @@ impl std::fmt::Debug for Nodes {
     }
 }
 
-pub struct NodesIter<'a> {
-    inner: *mut lib::LilvIter,
-    life: Arc<Life>,
-    nodes: &'a Nodes,
+impl IntoIterator for Nodes {
+    type Item = Node;
+    type IntoIter = NodesIter<Nodes>;
+
+    fn into_iter(self) -> NodesIter<Nodes> {
+        let inner = unsafe {
+            let _life = self.life.inner.lock();
+            lib::lilv_nodes_begin(self.inner)
+        };
+        NodesIter {
+            inner,
+            life: self.life.clone(),
+            nodes: self,
+        }
+    }
 }
 
-impl<'a> Iterator for NodesIter<'a> {
+pub struct NodesIter<NS> {
+    inner: *mut lib::LilvIter,
+    life: Arc<Life>,
+    nodes: NS,
+}
+
+impl<NS> Iterator for NodesIter<NS>
+where
+    NS: Borrow<Nodes>,
+{
     type Item = Node;
 
     fn next(&mut self) -> Option<Self::Item> {
         let _life = self.life.inner.lock();
-        let node = unsafe { lib::lilv_nodes_get(self.nodes.inner, self.inner) } as *mut _;
+        let node = unsafe { lib::lilv_nodes_get(self.nodes.borrow().inner, self.inner) } as *mut _;
         let next = Some({
             let ptr = NonNull::new(node)?;
             let world = self.life.clone();
@@ -281,7 +301,7 @@ impl<'a> Iterator for NodesIter<'a> {
                 life: world,
             }
         });
-        self.inner = unsafe { lib::lilv_nodes_next(self.nodes.inner, self.inner) };
+        self.inner = unsafe { lib::lilv_nodes_next(self.nodes.borrow().inner, self.inner) };
         next
     }
 }
@@ -289,7 +309,7 @@ impl<'a> Iterator for NodesIter<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::World;
+    use crate::world::World;
 
     #[test]
     fn test_null_nodes() {
@@ -299,7 +319,7 @@ mod tests {
             life: world.life,
         };
         assert_eq!(nodes.size(), 0);
-        for n in nodes.iter() {
+        for n in nodes {
             panic!("Should not have any nodes but found {}", n.turtle_token());
         }
     }

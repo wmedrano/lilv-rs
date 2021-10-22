@@ -1,7 +1,6 @@
 use crate::node::{Node, Nodes};
-use crate::plugin::PluginsIter;
+use crate::plugin::Plugins;
 use crate::plugin_class::PluginClass;
-use crate::Plugin;
 use lilv_sys as lib;
 use parking_lot::Mutex;
 use std::ptr::NonNull;
@@ -63,43 +62,14 @@ impl World {
 
     /// An iterable over all the plugins in the world.
     #[must_use]
-    pub fn plugins(&self) -> PluginsIter {
-        let world = self.life.inner.lock();
-        let (ptr, iter) = {
-            let ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
-            let iter = unsafe { lib::lilv_plugins_begin(ptr) };
-            (ptr, iter)
-        };
-
-        PluginsIter {
-            life: self.life.clone(),
-            ptr,
-            iter,
-        }
-    }
-
-    /// Get a plugin by its unique identifier.
-    #[must_use]
-    pub fn plugin(&self, uri: &Node) -> Option<Plugin> {
-        let world = self.life.inner.lock();
-        let plugin_ptr: *mut lib::LilvPlugin = {
-            let plugins_ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
-            let uri_ptr = uri.inner.as_ptr();
-            unsafe { lib::lilv_plugins_get_by_uri(plugins_ptr, uri_ptr) }
-        } as _;
-        Some(Plugin {
-            life: self.life.clone(),
-            inner: NonNull::new(plugin_ptr)?,
-        })
-    }
-
-    /// The number of plugins loaded.
-    #[must_use]
-    pub fn plugins_count(&self) -> usize {
+    pub fn plugins(&self) -> Plugins {
         let world = self.life.inner.lock();
         let ptr = unsafe { lib::lilv_world_get_all_plugins(world.as_ptr()) };
-        let size = unsafe { lib::lilv_plugins_size(ptr) };
-        size as usize
+
+        Plugins {
+            life: self.life.clone(),
+            ptr,
+        }
     }
 }
 

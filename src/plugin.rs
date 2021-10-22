@@ -1,10 +1,11 @@
 use crate::instance::Instance;
 use crate::node::{Node, Nodes};
 use crate::plugin_class::PluginClass;
-use crate::port::Port;
-use crate::uis::Uis;
+use crate::port::{FloatRanges, Port};
+use crate::ui::Uis;
 use crate::world::Life;
 use lilv_sys as lib;
+use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::ptr::NonNull;
 use std::sync::Arc;
@@ -12,18 +13,8 @@ use std::sync::Arc;
 unsafe impl Send for Plugin {}
 unsafe impl Sync for Plugin {}
 
-/// Describes the ports of a plugin.
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct FloatPortRanges {
-    /// The minimum value of the port.
-    pub min: f32,
-    /// The maximum value of the port.
-    pub max: f32,
-    /// The default value of the port.
-    pub default: f32,
-}
-
 /// Can be used to instantiave LV2 plugins.
+#[derive(Clone)]
 pub struct Plugin {
     pub(crate) inner: NonNull<lib::LilvPlugin>,
     pub(crate) life: Arc<Life>,
@@ -224,7 +215,7 @@ impl Plugin {
 
     /// Return the ranges for all ports.
     #[must_use]
-    pub fn port_ranges_float(&self) -> Vec<FloatPortRanges> {
+    pub fn port_ranges_float(&self) -> Vec<FloatRanges> {
         let ports_count = self.num_ports();
         let mut min = vec![0_f32; ports_count];
         let mut max = vec![0_f32; ports_count];
@@ -241,7 +232,7 @@ impl Plugin {
             );
         }
         (0..ports_count)
-            .map(|i| FloatPortRanges {
+            .map(|i| FloatRanges {
                 min: min[i],
                 max: max[i],
                 default: default[i],
@@ -291,7 +282,7 @@ impl Plugin {
             })?;
             Port {
                 inner,
-                plugin: self,
+                plugin: self.clone(),
             }
         })
     }
@@ -311,7 +302,7 @@ impl Plugin {
                 NonNull::new(unsafe { lib::lilv_plugin_get_port_by_symbol(plugin, symbol) as _ })?;
             Port {
                 inner,
-                plugin: self,
+                plugin: self.clone(),
             }
         })
     }
@@ -341,7 +332,7 @@ impl Plugin {
             })?;
             Port {
                 inner,
-                plugin: self,
+                plugin: self.clone(),
             }
         })
     }
@@ -451,14 +442,14 @@ impl Plugin {
 
     /// Get all UIs for plugin.
     #[must_use]
-    pub fn uis(&self) -> Option<Uis<'_>> {
+    pub fn uis(&self) -> Option<Uis> {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
 
         Some(Uis {
             inner: NonNull::new(unsafe { lib::lilv_plugin_get_uis(plugin) })?,
             life: self.life.clone(),
-            plugin: self,
+            plugin: self.clone(),
         })
     }
 
@@ -493,24 +484,80 @@ impl Plugin {
     }
 }
 
-/// An iterator over plugins.
-pub struct PluginsIter {
+pub struct Plugins {
     pub(crate) life: Arc<Life>,
     pub(crate) ptr: *const lib::LilvPlugins,
+}
+
+impl Plugins {
+    /// An iterable over all the plugins in the world.
+    pub fn iter(&self) -> impl '_ + Iterator<Item = Plugin> {
+        let _life = self.life.inner.lock();
+        PluginsIter {
+            plugins: self,
+            iter: { unsafe { lib::lilv_plugins_begin(self.ptr) } },
+        }
+    }
+
+    /// Get a plugin by its unique identifier.
+    #[must_use]
+    pub fn plugin(&self, uri: &Node) -> Option<Plugin> {
+        let _life = self.life.inner.lock();
+        let uri_ptr = uri.inner.as_ptr();
+        let plugin_ptr: *mut lib::LilvPlugin =
+            unsafe { lib::lilv_plugins_get_by_uri(self.ptr, uri_ptr) as *mut _ };
+        Some(Plugin {
+            life: self.life.clone(),
+            inner: NonNull::new(plugin_ptr)?,
+        })
+    }
+
+    /// The number of plugins loaded.
+    #[must_use]
+    pub fn count(&self) -> usize {
+        let _life = self.life.inner.lock();
+        let size = unsafe { lib::lilv_plugins_size(self.ptr) };
+        size as usize
+    }
+}
+
+impl IntoIterator for Plugins {
+    type Item = Plugin;
+
+    type IntoIter = PluginsIter<Plugins>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let iter = {
+            let _life = self.life.inner.lock();
+            unsafe { lib::lilv_plugins_begin(self.ptr) }
+        };
+        PluginsIter {
+            plugins: self,
+            iter,
+        }
+    }
+}
+
+/// An iterator over plugins.
+pub struct PluginsIter<PS> {
+    pub(crate) plugins: PS,
     pub(crate) iter: *mut lib::LilvIter,
 }
 
-impl Iterator for PluginsIter {
+impl<PS> Iterator for PluginsIter<PS>
+where
+    PS: Borrow<Plugins>,
+{
     type Item = Plugin;
 
     fn next(&mut self) -> Option<Plugin> {
-        let _life = self.life.inner.lock();
+        let _life = self.plugins.borrow().life.inner.lock();
         let ptr: *mut lib::LilvPlugin =
-            unsafe { lib::lilv_plugins_get(self.ptr, self.iter) } as *mut _;
-        self.iter = unsafe { lib::lilv_plugins_next(self.ptr, self.iter) };
+            unsafe { lib::lilv_plugins_get(self.plugins.borrow().ptr, self.iter) } as *mut _;
+        self.iter = unsafe { lib::lilv_plugins_next(self.plugins.borrow().ptr, self.iter) };
         match NonNull::new(ptr) {
             Some(ptr) => Some(Plugin {
-                life: self.life.clone(),
+                life: self.plugins.borrow().life.clone(),
                 inner: ptr,
             }),
             None => None,

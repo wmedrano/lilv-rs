@@ -1,16 +1,16 @@
-use lilv::FloatPortRanges;
+use lilv::{node::Node, plugin::Plugin, port::FloatRanges, world::World};
 
 struct Nodes {
-    control_class: lilv::Node,
-    event_class: lilv::Node,
-    group_pred: lilv::Node,
-    label_pred: lilv::Node,
-    preset_class: lilv::Node,
-    designation_pred: lilv::Node,
-    supports_event_pred: lilv::Node,
+    control_class: Node,
+    event_class: Node,
+    group_pred: Node,
+    label_pred: Node,
+    preset_class: Node,
+    designation_pred: Node,
+    supports_event_pred: Node,
 }
 
-fn print_port(p: &lilv::Plugin, index: usize, port_ranges: &FloatPortRanges, nodes: &Nodes) {
+fn print_port(p: &Plugin, index: usize, port_ranges: &FloatRanges, nodes: &Nodes) {
     let port = p.port_by_index(index);
 
     println!("\n\tPort {}:", index);
@@ -35,7 +35,7 @@ fn print_port(p: &lilv::Plugin, index: usize, port_ranges: &FloatPortRanges, nod
         let supported = port.value(&nodes.supports_event_pred);
         if supported.size() > 0 {
             println!("\n\t\tSupported events:\n");
-            for value in supported.iter() {
+            for value in supported {
                 println!("\t\t\t{}", value.as_uri().unwrap());
             }
         }
@@ -43,7 +43,7 @@ fn print_port(p: &lilv::Plugin, index: usize, port_ranges: &FloatPortRanges, nod
 
     let points = port.scale_points();
     println!("\n\t\tScale Points:");
-    for point in points.iter() {
+    for point in points {
         println!(
             "\t\t\t{} = \"{}\"",
             point.value().as_str().unwrap(),
@@ -98,7 +98,7 @@ fn print_port(p: &lilv::Plugin, index: usize, port_ranges: &FloatPortRanges, nod
 }
 
 #[allow(clippy::too_many_lines)]
-fn print_plugin(world: &lilv::World, p: &lilv::Plugin, nodes: &Nodes) {
+fn print_plugin(world: &World, p: &Plugin, nodes: &Nodes) {
     println!("{}\n", p.uri().as_uri().unwrap());
     println!("\tName:              {}", p.name().as_str().unwrap());
     println!(
@@ -139,10 +139,10 @@ fn print_plugin(world: &lilv::World, p: &lilv::Plugin, nodes: &Nodes) {
     if let Some(uis) = p.uis() {
         println!("\tUIs:");
 
-        for ui in uis.iter() {
+        for ui in uis {
             println!("\t\t{}", ui.uri().as_uri().unwrap());
 
-            for tyep in ui.classes().iter() {
+            for tyep in ui.classes() {
                 println!("\t\t\tClass:  {}", tyep.as_uri().unwrap());
             }
 
@@ -207,7 +207,7 @@ fn print_plugin(world: &lilv::World, p: &lilv::Plugin, nodes: &Nodes) {
         if presets.size() != 0 {
             println!("\tPresets: ");
 
-            for preset in presets.iter() {
+            for preset in presets {
                 world.load_resource(&preset).unwrap();
 
                 let titles = world.find_nodes(Some(&preset), &nodes.label_pred, None);
@@ -233,7 +233,7 @@ fn print_plugin(world: &lilv::World, p: &lilv::Plugin, nodes: &Nodes) {
 }
 
 fn main() {
-    let w = lilv::World::new();
+    let w = World::new();
     w.load_all();
 
     let nodes = Nodes {
@@ -246,7 +246,7 @@ fn main() {
         supports_event_pred: w.new_uri("http://lv2plug.in/ns/ext/atom#supportsEvent"),
     };
 
-    for p in w.plugins().filter(lilv::Plugin::verify) {
+    for p in w.plugins().iter().filter(Plugin::verify) {
         print_plugin(&w, &p, &nodes);
     }
 }

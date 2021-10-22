@@ -3,12 +3,13 @@ use crate::plugin::Plugin;
 use lilv_sys as lib;
 use std::ptr::NonNull;
 
-pub struct Port<'a> {
+#[derive(Clone)]
+pub struct Port {
     pub(crate) inner: NonNull<lib::LilvPort>,
-    pub(crate) plugin: &'a Plugin,
+    pub(crate) plugin: Plugin,
 }
 
-impl<'a> Port<'a> {
+impl Port {
     /// # Panics
     /// Panics if the node could not be obtained.
     #[must_use]
@@ -154,7 +155,7 @@ impl<'a> Port<'a> {
     /// # Panics
     /// Panics if the range could not be obtained.
     #[must_use]
-    pub fn range(&self) -> PortRange {
+    pub fn range(&self) -> Range {
         let _life = self.plugin.life.inner.lock();
         let plugin = self.plugin.inner.as_ptr();
         let port = self.inner.as_ptr();
@@ -181,7 +182,7 @@ impl<'a> Port<'a> {
                 life: world,
             })
         };
-        PortRange {
+        Range {
             default: ptr_to_node(default_ptr),
             minimum: ptr_to_node(minimum_ptr),
             maximum: ptr_to_node(maximum_ptr),
@@ -196,20 +197,21 @@ impl<'a> Port<'a> {
 
         ScalePoints {
             inner: unsafe { lib::lilv_port_get_scale_points(plugin, port) },
-            port: self,
+            port: self.clone(),
         }
     }
 }
 
-unsafe impl<'a> Send for ScalePoint<'a> {}
-unsafe impl<'a> Sync for ScalePoint<'a> {}
+unsafe impl Send for ScalePoint {}
+unsafe impl Sync for ScalePoint {}
 
-pub struct ScalePoint<'a> {
+#[derive(Clone)]
+pub struct ScalePoint {
     pub(crate) inner: NonNull<lib::LilvScalePoint>,
-    pub(crate) port: &'a Port<'a>,
+    pub(crate) port: Port,
 }
 
-impl<'a> ScalePoint<'a> {
+impl ScalePoint {
     /// # Panics
     /// Panics if the node for the value could not be obtained.
     #[must_use]
@@ -247,12 +249,13 @@ impl<'a> ScalePoint<'a> {
     }
 }
 
-pub struct ScalePoints<'a> {
+#[derive(Clone)]
+pub struct ScalePoints {
     pub(crate) inner: *const lib::LilvScalePoints,
-    pub(crate) port: &'a Port<'a>,
+    pub(crate) port: Port,
 }
 
-impl<'a> ScalePoints<'a> {
+impl ScalePoints {
     #[must_use]
     pub fn size(&self) -> usize {
         let _life = self.port.plugin.life.inner.lock();
@@ -261,30 +264,41 @@ impl<'a> ScalePoints<'a> {
     }
 
     #[must_use]
-    pub fn iter(&self) -> ScalePointsIter<'_> {
+    pub fn iter(&self) -> ScalePointsIter {
         let _life = self.port.plugin.life.inner.lock();
         ScalePointsIter {
-            inner: self,
+            inner: self.clone(),
             iter: unsafe { lib::lilv_scale_points_begin(self.inner) },
         }
     }
 }
 
-pub struct ScalePointsIter<'a> {
-    inner: &'a ScalePoints<'a>,
+impl IntoIterator for ScalePoints {
+    type Item = ScalePoint;
+
+    type IntoIter = ScalePointsIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+#[derive(Clone)]
+pub struct ScalePointsIter {
+    inner: ScalePoints,
     iter: *mut lib::LilvIter,
 }
 
-impl<'a> Iterator for ScalePointsIter<'a> {
-    type Item = ScalePoint<'a>;
+impl Iterator for ScalePointsIter {
+    type Item = ScalePoint;
 
-    fn next(&mut self) -> Option<ScalePoint<'a>> {
+    fn next(&mut self) -> Option<ScalePoint> {
         let _life = self.inner.port.plugin.life.inner.lock();
         let next_ptr =
             unsafe { lib::lilv_scale_points_get(self.inner.inner, self.iter.cast()) } as *mut _;
         let next = Some(ScalePoint {
             inner: NonNull::new(next_ptr)?,
-            port: self.inner.port,
+            port: self.inner.port.clone(),
         });
         self.iter = unsafe { lib::lilv_scale_points_next(self.inner.inner, self.iter) };
         next
@@ -293,11 +307,23 @@ impl<'a> Iterator for ScalePointsIter<'a> {
 
 /// Describe the ranges of the port if possible.
 #[allow(clippy::module_name_repetitions)]
-pub struct PortRange {
+#[derive(Clone, Debug, PartialEq)]
+pub struct Range {
     /// The default value of the port.
     pub default: Option<Node>,
     /// The minimum value of the port.
     pub minimum: Option<Node>,
     /// The maximum value of the port.
     pub maximum: Option<Node>,
+}
+
+/// Describes the range of the ports of a plugin.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct FloatRanges {
+    /// The default value of the port.
+    pub default: f32,
+    /// The minimum value of the port.
+    pub min: f32,
+    /// The maximum value of the port.
+    pub max: f32,
 }

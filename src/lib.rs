@@ -1,20 +1,10 @@
-mod instance;
-mod node;
-mod plugin;
-mod plugin_class;
-mod port;
-mod ui;
-mod uis;
-mod world;
-
-pub use instance::*;
-pub use node::*;
-pub use plugin::*;
-pub use plugin_class::*;
-pub use port::*;
-pub use ui::*;
-pub use uis::*;
-pub use world::*;
+pub mod instance;
+pub mod node;
+pub mod plugin;
+pub mod plugin_class;
+pub mod port;
+pub mod ui;
+pub mod world;
 
 #[cfg(test)]
 mod tests {
@@ -24,7 +14,7 @@ mod tests {
 
     #[test]
     fn test_all_plugins_uri() {
-        let world = World::with_load_all();
+        let world = world::World::with_load_all();
         for plugin in world.plugins() {
             assert!(plugin.uri().as_uri().is_some());
         }
@@ -37,7 +27,7 @@ mod tests {
             num_ports: usize,
         }
 
-        let world = World::with_load_all();
+        let world = world::World::with_load_all();
         let tests = [TestCase {
             uri: "http://lv2plug.in/plugins/eg-amp",
             num_ports: 3,
@@ -45,6 +35,7 @@ mod tests {
 
         for test_case in tests {
             let plugin = world
+                .plugins()
                 .plugin(&world.new_uri(test_case.uri))
                 .unwrap_or_else(|| {
                     panic!("{}: Plugin not found.", test_case.uri);

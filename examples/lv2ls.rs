@@ -1,10 +1,12 @@
+use lilv::{plugin::Plugin, world::World};
+
 fn main() {
-    let world = lilv::World::new();
+    let world = World::new();
     world.load_all();
 
     let show_names = false;
 
-    let print = |plugin: lilv::Plugin| {
+    let print = |plugin: Plugin| {
         if show_names {
             String::from(plugin.name().as_str().unwrap())
         } else {
@@ -14,11 +16,12 @@ fn main() {
 
     let plugins = world
         .plugins()
-        .filter(lilv::Plugin::verify)
+        .iter()
+        .filter(Plugin::verify)
         .map(print)
         .collect::<Vec<_>>();
 
-    debug_assert_eq!(world.plugins_count(), plugins.len());
+    debug_assert_eq!(world.plugins().count(), plugins.len());
 
     for uri in plugins {
         println!("{}", uri);
