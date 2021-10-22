@@ -186,7 +186,13 @@ mod tests {
         let world = crate::World::with_load_all();
         for plugin in world.plugins() {
             let uri = plugin.uri().as_uri().unwrap_or("").to_string();
-            let mut instance = unsafe { plugin.instantiate(44100.0, &[]).expect(&uri) };
+            let mut instance = unsafe {
+                plugin
+                    .instantiate(44100.0, &[])
+                    .unwrap_or_else(|| panic!("failed to instantiate {}", uri))
+            };
+            // The plugin instance needs a pointer to data to read and write
+            // from.
             let mut port_values: Vec<f32> = plugin
                 .iter_ports()
                 .map(|p| {
