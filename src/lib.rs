@@ -1,10 +1,17 @@
+/// Contains functionality for plugin instances that process data.
 pub mod instance;
+/// Contains functionality for nodes. Nodes are used to represent metadata.
 pub mod node;
+/// Contains functionality to describe and instantiate plugins.
 pub mod plugin;
-pub mod plugin_class;
+/// Contains port to describe IO for plugins.
 pub mod port;
+/// Contains data about plugin UIs.
 pub mod ui;
-pub mod world;
+
+mod world;
+
+pub use world::World;
 
 #[cfg(test)]
 mod tests {

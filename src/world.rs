@@ -1,6 +1,6 @@
 use crate::node::{Node, Nodes};
+use crate::plugin::PluginClass;
 use crate::plugin::Plugins;
-use crate::plugin_class::PluginClass;
 use lilv_sys as lib;
 use parking_lot::Mutex;
 use std::ptr::NonNull;

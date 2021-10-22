@@ -1,4 +1,4 @@
-use lilv::{node::Node, plugin::Plugin, port::FloatRanges, world::World};
+use lilv::{node::Node, plugin::Plugin, port::FloatRanges, World};
 
 struct Nodes {
     control_class: Node,

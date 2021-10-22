@@ -1,4 +1,4 @@
-use lilv::{plugin::Plugin, world::World};
+use lilv::{plugin::Plugin, World};
 
 fn main() {
     let world = World::new();
