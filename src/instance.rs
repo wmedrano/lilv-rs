@@ -5,11 +5,13 @@ use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::ptr::NonNull;
 
+/// An LV2 plugin instance.
 #[allow(clippy::module_name_repetitions)]
 pub struct Instance {
     pub(crate) inner: NonNull<lib::LilvInstanceImpl>,
 }
 
+/// An LV2 plugin instance that has been activated and is ready to process data.
 #[allow(clippy::module_name_repetitions)]
 pub struct ActiveInstance {
     pub(crate) inner: Instance,
@@ -18,6 +20,8 @@ pub struct ActiveInstance {
 unsafe impl Send for Instance {}
 
 impl Instance {
+    /// Returns the URI of the plugin for the instance.
+    /// This is a globally unique string for the plugin.
     #[must_use]
     pub fn uri(&self) -> Option<&str> {
         unsafe {
@@ -27,6 +31,36 @@ impl Instance {
         }
     }
 
+    /// Connect a port on a plugin instance to a memory location.
+    ///
+    /// Plugin writers should be aware that the host may elect to use the same
+    /// buffer for more than one port and even use the same buffer for both
+    /// input and output (see lv2:inPlaceBroken in lv2.ttl).
+    ///
+    /// If the plugin has the feature lv2:hardRTCapable then there are various
+    /// things that the plugin MUST NOT do within the `connect_port()` function;
+    /// see lv2core.ttl for details.
+    ///
+    /// `connect_port()` MUST be called at least once for each port before
+    /// `run()` is called, unless that port is lv2:connectionOptional. The
+    /// plugin must pay careful attention to the block size passed to run()
+    /// since the block allocated may only just be large enough to contain the
+    /// data, and is not guaranteed to remain constant between run() calls.
+    ///
+    /// `connect_port()` may be called more than once for a plugin instance to
+    /// allow the host to change the buffers that the plugin is reading or
+    /// writing.
+    ///
+    /// The host MUST NOT try to connect a `port_index` that is not defined in
+    /// the plugin's RDF data. If it does, the plugin's behaviour is undefined
+    /// (a crash is likely).
+    ///
+    /// `data` should point to data of the type defined by the port type in the
+    /// plugin's RDF data (e.g. an array of float for an lv2:AudioPort). This
+    /// pointer must be stored by the plugin instance and used to read/write
+    /// data when run() is called. Data present at the time of the
+    /// `connect_port()` call MUST NOT be considered meaningful.
+    ///
     /// # Safety
     /// Connecting a port calls a plugin's code, which itself may be unsafe.
     pub unsafe fn connect_port<T>(&mut self, port_index: usize, data: &mut T) {
@@ -42,6 +76,11 @@ impl Instance {
         );
     }
 
+    /// Activate a plugin instance.
+    ///
+    /// This resets all state information in the plugin except for port
+    /// connections.
+    ///
     /// # Safety
     /// Calling external code may be unsafe.
     #[must_use]
@@ -51,6 +90,12 @@ impl Instance {
         Some(ActiveInstance { inner: self })
     }
 
+    /// Get the extension data for a plugin instance.
+    ///
+    /// The type and semantics of the data returned is specific to the
+    /// particular extension, though in all cases it is shared and must not be
+    /// deleted.
+    ///
     /// # Safety
     /// Gathering extension data call's a plugins code, which itself may be unsafe.
     #[must_use]
@@ -61,11 +106,13 @@ impl Instance {
         )
     }
 
+    /// Get the raw descriptor for the plugin.
     #[must_use]
     pub fn descriptor(&self) -> Option<&LV2Descriptor> {
         unsafe { self.inner.as_ref().lv2_descriptor.as_ref() }
     }
 
+    /// Get the raw handle for the plugin instance.
     #[must_use]
     pub fn handle(&self) -> LV2Handle {
         unsafe { self.inner.as_ref().lv2_handle }
@@ -79,6 +126,7 @@ impl Drop for Instance {
 }
 
 impl ActiveInstance {
+    /// Run the plugin instance for `sample_count` frames.
     /// # Safety
     /// Calling external code may be unsafe.
     #[allow(clippy::cast_possible_truncation)]
@@ -93,6 +141,10 @@ impl ActiveInstance {
         }
     }
 
+    /// Deactivate the plugin instance.
+    ///
+    /// Note: This will reset all state information except for port connections.
+    ///
     /// # Safety
     /// Calling external code may be unsafe.
     #[must_use]
@@ -107,6 +159,14 @@ impl ActiveInstance {
         Some(instance)
     }
 
+    /// Get the underlying instance.
+    ///
+    /// This is useful to call `connect_port` if the data locations have changed.
+    #[must_use]
+    pub fn instance(&self) -> &Instance {
+        &self.inner
+    }
+
     fn deactive_impl(&mut self) -> Option<NonNull<lib::LilvInstanceImpl>> {
         let deactivate_fn = unsafe { (*self.inner.inner.as_ref().lv2_descriptor).deactivate }?;
         unsafe { deactivate_fn(self.inner.inner.as_ref().lv2_handle) };
@@ -119,43 +179,3 @@ impl Drop for ActiveInstance {
         self.deactive_impl();
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use std::collections::HashSet;
-
-//     use crate::*;
-
-//     const SAMPLE_RATE: f64 = 44100.0;
-
-//     #[test]
-//     fn test_activate_all_plugins() {
-//         let world = World::with_load_all();
-//         let have_features = HashSet::<String>::new();
-//         for plugin in world.plugins() {
-//             let plugin_name = plugin.name().as_str().unwrap().to_string();
-//             let required_features = plugin.required_features();
-//             for feature in required_features.iter() {
-//                 let feature_name = feature.as_str().unwrap();
-//                 if !have_features.contains(feature_name) {
-//                     continue;
-//                 }
-//             }
-//             let instance = match unsafe { plugin.instantiate(SAMPLE_RATE, &[]) } {
-//                 Some(i) => i,
-//                 None => {
-//                     println!("{}: Failed to instantiate.", plugin_name);
-//                     continue;
-//                 }
-//             };
-//             let active_instance = match unsafe { instance.activate() } {
-//                 Some(i) => i,
-//                 None => {
-//                     println!("{}: Failed to activate.", plugin_name);
-//                     continue;
-//                 }
-//             };
-//             unsafe { active_instance.deactivate().unwrap() };
-//         }
-//     }
-// }

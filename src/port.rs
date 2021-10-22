@@ -11,6 +11,8 @@ pub struct Port {
 }
 
 impl Port {
+    /// Get the node for the port.
+    ///
     /// # Panics
     /// Panics if the node could not be obtained.
     #[must_use]
@@ -30,6 +32,11 @@ impl Port {
         }
     }
 
+    /// Get the value associated with the port in a plugin's data files.
+    ///
+    /// `predicate` must be either a URI or a `QName`.
+    /// Returns the ?object of all triples found of the form:
+    ///     `<plugin-uri> predicate ?object`
     #[must_use]
     pub fn value(&self, predicate: &Node) -> Nodes {
         let _life = self.plugin.life.inner.lock();
@@ -41,6 +48,10 @@ impl Port {
         Nodes { inner, life: world }
     }
 
+    /// Get a single property value of a port.
+    ///
+    /// This is equivalent to getting the first iterable value of
+    /// `self.value(predicate)`.
     #[must_use]
     pub fn get(&self, predicate: &Node) -> Option<Node> {
         let _life = self.plugin.life.inner.lock();
@@ -59,6 +70,7 @@ impl Port {
         })
     }
 
+    /// Return the LV2 port properties of a port.
     #[must_use]
     pub fn properties(&self) -> Nodes {
         let _life = self.plugin.life.inner.lock();
@@ -69,6 +81,7 @@ impl Port {
         Nodes { inner, life: world }
     }
 
+    /// Returns true if the port has the given property.
     #[must_use]
     pub fn has_property(&self, property_uri: &Node) -> bool {
         let _life = self.plugin.life.inner.lock();
@@ -79,6 +92,11 @@ impl Port {
         unsafe { lib::lilv_port_has_property(plugin, port, property_uri) }
     }
 
+    /// Returns `true` if the port supports a certain event type.
+    ///
+    /// More precisely, this returns `true` if and only iff the port has an
+    /// `atom:supports` or an `ev:supportsEvent` property with `event_type` as
+    /// the value.
     #[must_use]
     pub fn supports_event(&self, event_type: &Node) -> bool {
         let _life = self.plugin.life.inner.lock();
@@ -89,6 +107,7 @@ impl Port {
         unsafe { lib::lilv_port_supports_event(plugin, port, event_type) }
     }
 
+    /// Returns the index of the port within the plugin.
     #[must_use]
     pub fn index(&self) -> usize {
         let _life = self.plugin.life.inner.lock();
@@ -98,6 +117,9 @@ impl Port {
         unsafe { lib::lilv_port_get_index(plugin, port) as _ }
     }
 
+    /// Get the symbol of a port.
+    ///
+    /// Symbol is a short string.
     #[must_use]
     pub fn symbol(&self) -> Option<Node> {
         let _life = self.plugin.life.inner.lock();
@@ -116,6 +138,10 @@ impl Port {
         .into()
     }
 
+    /// Get the name of a port.
+    ///
+    /// The is guaranteed to return the untraslated name (the doap:name in the
+    /// data file without a language tag).
     #[must_use]
     pub fn name(&self) -> Option<Node> {
         let _life = self.plugin.life.inner.lock();
@@ -133,6 +159,10 @@ impl Port {
         })
     }
 
+    /// Get all the classes of the port.
+    ///
+    /// This can be used to determine if a port is an input, output, audio,
+    /// control, midi, etc... although it's simpler to use `Port::is_a`.
     #[must_use]
     pub fn classes(&self) -> Nodes {
         let _life = self.plugin.life.inner.lock();
@@ -143,6 +173,7 @@ impl Port {
         Nodes { inner, life: world }
     }
 
+    /// Returns `true` if the port is of the given type.
     #[must_use]
     pub fn is_a(&self, port_class: &Node) -> bool {
         let _life = self.plugin.life.inner.lock();
@@ -153,6 +184,8 @@ impl Port {
         unsafe { lib::lilv_port_is_a(plugin, port, port_class) }
     }
 
+    /// The the range (default, minimum, maximum) values of the port.
+    ///
     /// # Panics
     /// Panics if the range could not be obtained.
     #[must_use]
@@ -190,6 +223,10 @@ impl Port {
         }
     }
 
+    /// Get the scale points (enumeration values) of a port.
+    ///
+    /// This returns a collection of "interesting" named values of a port. These
+    /// are appropriate entries for a UI selector.
     #[must_use]
     pub fn scale_points(&self) -> ScalePoints {
         let _life = self.plugin.life.inner.lock();
@@ -199,6 +236,7 @@ impl Port {
         ScalePoints {
             inner: unsafe { lib::lilv_port_get_scale_points(plugin, port) },
             port: self.clone(),
+            refs: std::sync::Arc::new(1.into()),
         }
     }
 }
@@ -222,9 +260,12 @@ unsafe impl Sync for ScalePoint {}
 pub struct ScalePoint {
     pub(crate) inner: NonNull<lib::LilvScalePoint>,
     pub(crate) port: Port,
+    pub(crate) collection: ScalePoints,
 }
 
 impl ScalePoint {
+    /// Get the label of the scale point (enumeration value).
+    ///
     /// # Panics
     /// Panics if the node for the value could not be obtained.
     #[must_use]
@@ -243,6 +284,8 @@ impl ScalePoint {
         }
     }
 
+    /// Get the value of the scale point (enumeration value).
+    ///
     /// # Panics
     /// Panics if the node for the value could not be obtained.
     #[must_use]
@@ -271,13 +314,14 @@ impl Debug for ScalePoint {
     }
 }
 
-#[derive(Clone)]
 pub struct ScalePoints {
     pub(crate) inner: *const lib::LilvScalePoints,
     pub(crate) port: Port,
+    pub(crate) refs: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl ScalePoints {
+    /// The number of scale points within the collection.
     #[must_use]
     pub fn count(&self) -> usize {
         let _life = self.port.plugin.life.inner.lock();
@@ -285,12 +329,35 @@ impl ScalePoints {
         size as usize
     }
 
+    /// An iterator over the scale points in the collection.
     #[must_use]
     pub fn iter(&self) -> ScalePointsIter {
         let _life = self.port.plugin.life.inner.lock();
         ScalePointsIter {
             inner: self.clone(),
             iter: unsafe { lib::lilv_scale_points_begin(self.inner) },
+        }
+    }
+}
+
+impl Drop for ScalePoints {
+    fn drop(&mut self) {
+        let refs = self.refs.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+        if refs == 0 {
+            unsafe {
+                lib::lilv_scale_points_free(self.inner as *mut _);
+            }
+        }
+    }
+}
+
+impl Clone for ScalePoints {
+    fn clone(&self) -> Self {
+        self.refs.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Self {
+            inner: self.inner,
+            port: self.port.clone(),
+            refs: self.refs.clone(),
         }
     }
 }
@@ -314,6 +381,7 @@ impl IntoIterator for ScalePoints {
     }
 }
 
+/// An iterator over scale points.
 #[derive(Clone)]
 pub struct ScalePointsIter {
     inner: ScalePoints,
@@ -330,13 +398,14 @@ impl Iterator for ScalePointsIter {
         let next = Some(ScalePoint {
             inner: NonNull::new(next_ptr)?,
             port: self.inner.port.clone(),
+            collection: self.inner.clone(),
         });
         self.iter = unsafe { lib::lilv_scale_points_next(self.inner.inner, self.iter) };
         next
     }
 }
 
-/// Describe the ranges of the port if possible.
+/// Describes the ranges of the port if possible.
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Range {

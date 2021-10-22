@@ -96,6 +96,8 @@ impl Plugin {
         })
     }
 
+    /// The (human readable) name of the plugin.
+    ///
     /// # Panics
     /// May panic if `verify()` returns false.
     #[must_use]
@@ -115,10 +117,11 @@ impl Plugin {
     }
 
     /// The class of the plugin.
+    ///
     /// # Panics
     /// Panics if the pluginc class could not be found.
     #[must_use]
-    pub fn class(&self) -> PluginClass {
+    pub fn class(&self) -> Class {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
 
@@ -126,7 +129,7 @@ impl Plugin {
             let ptr =
                 NonNull::new(unsafe { lib::lilv_plugin_get_class(plugin) as *mut _ }).unwrap();
             let world = self.life.clone();
-            PluginClass {
+            Class {
                 inner: ptr,
                 life: world,
             }
@@ -210,7 +213,7 @@ impl Plugin {
         })
     }
 
-    /// Returns the number of ports.
+    /// Returns the number of ports for the plugin.
     #[must_use]
     pub fn ports_count(&self) -> usize {
         let _life = self.life.inner.lock();
@@ -247,10 +250,16 @@ impl Plugin {
 
     /// Returns the number of ports that match all the given classes.
     #[must_use]
-    pub fn num_ports_of_class(&self, classes: &[&Node]) -> usize {
+    pub fn num_ports_of_class<I, N>(&self, classes: I) -> usize
+    where
+        I: IntoIterator<Item = N>,
+        N: Borrow<Node>,
+    {
+        let mut classes = classes.into_iter();
+        let classes_ref = &mut classes;
         (0..self.ports_count())
             .filter_map(|index| self.port_by_index(index))
-            .filter(|port| classes.iter().all(|cls| port.is_a(cls)))
+            .filter(|port| classes_ref.all(|cls| port.is_a(cls.borrow())))
             .count()
     }
 
@@ -274,7 +283,7 @@ impl Plugin {
         }
     }
 
-    /// Iterate through all the ports.
+    /// Returns an iterator over all the ports.
     pub fn iter_ports(&self) -> impl Iterator<Item = Port> {
         PortsIter {
             plugin: self.clone(),
@@ -321,7 +330,7 @@ impl Plugin {
     }
 
     /// Get a port on plugin by its lv2:designation.
-
+    ///
     /// The designation of a port describes the meaning, assignment, allocation
     /// or role of the port, e.g. "left channel" or "gain". If found, the port
     /// with matching `port_class` and designation is be returned, otherwise
@@ -515,6 +524,7 @@ impl Debug for Plugin {
     }
 }
 
+/// A collection of plugins.
 pub struct Plugins {
     pub(crate) life: Arc<Life>,
     pub(crate) ptr: *const lib::LilvPlugins,
@@ -612,15 +622,20 @@ impl Iterator for PortsIter {
     }
 }
 
-unsafe impl Send for PluginClass {}
-unsafe impl Sync for PluginClass {}
+unsafe impl Send for Class {}
+unsafe impl Sync for Class {}
 
-pub struct PluginClass {
+/// A plugin class.
+///
+/// Examples of this include "Reverb Plugin" and "Instrument Plugin".
+pub struct Class {
     pub(crate) inner: NonNull<lib::LilvPluginClass>,
     pub(crate) life: Arc<Life>,
 }
 
-impl PluginClass {
+impl Class {
+    /// The label of this plugin class, ie "Oscillators".
+    ///
     /// # Panics
     /// Panics if the label could not be obtained.
     #[must_use]
@@ -640,6 +655,7 @@ impl PluginClass {
         }
     }
 
+    /// The URI for the plugin class.
     #[must_use]
     pub fn uri(&self) -> Option<Node> {
         let _life = self.life.inner.lock();
@@ -657,6 +673,9 @@ impl PluginClass {
         .into()
     }
 
+    /// The URI of the this class' superclass.
+    ///
+    /// For example "Instrument Plugin" belongs to "Generator Plugin".
     #[must_use]
     pub fn parent_uri(&self) -> Option<Node> {
         let _life = self.life.inner.lock();
@@ -673,11 +692,15 @@ impl PluginClass {
         })
     }
 
+    /// The children classes for this class.
+    ///
+    /// For example, the "Generator Plugin" class has "Constant Plugin",
+    /// "Instrument Plugin", and "Oscillator Plugin".
     #[must_use]
-    pub fn children(&self) -> Option<PluginClasses> {
+    pub fn children(&self) -> Option<Classes> {
         let _life = self.life.inner.lock();
         let inner = self.inner.as_ptr();
-        PluginClasses {
+        Classes {
             inner: NonNull::new(unsafe { lib::lilv_plugin_class_get_children(inner) })?,
             life: self.life.clone(),
         }
@@ -685,7 +708,7 @@ impl PluginClass {
     }
 }
 
-impl Debug for PluginClass {
+impl Debug for Class {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PluginClass")
             .field("label", &self.label())
@@ -695,30 +718,34 @@ impl Debug for PluginClass {
     }
 }
 
-pub struct PluginClasses {
+/// A collection of plugin classes.
+pub struct Classes {
     pub(crate) inner: NonNull<lib::LilvPluginClasses>,
     pub(crate) life: Arc<Life>,
 }
 
-impl PluginClasses {
+impl Classes {
+    /// An iterable over all the plugin classes in the world.
     #[must_use]
-    pub fn iter(&self) -> PluginClassesIter {
+    pub fn iter(&self) -> ClassIter {
         let _life = self.life.inner.lock();
-        PluginClassesIter {
+        ClassIter {
             classes: self.inner.as_ptr(),
             iter: unsafe { lib::lilv_plugin_classes_begin(self.inner.as_ptr()) },
             life: self.life.clone(),
         }
     }
 
+    /// The number of plugin classes in the collection.
     #[must_use]
     pub fn count(&self) -> usize {
         let _life = self.life.inner.lock();
         unsafe { lib::lilv_plugin_classes_size(self.inner.as_ptr()) as _ }
     }
 
+    /// The plugin class with the given URI or `None` if it does not exist.
     #[must_use]
-    pub fn get_by_uri(&self, uri: &Node) -> Option<PluginClass> {
+    pub fn get_by_uri(&self, uri: &Node) -> Option<Class> {
         let _life = self.life.inner.lock();
         let inner = self.inner.as_ptr();
         let uri = uri.inner.as_ptr();
@@ -727,7 +754,7 @@ impl PluginClasses {
             let ptr =
                 NonNull::new(unsafe { lib::lilv_plugin_classes_get_by_uri(inner, uri) as _ })?;
             let world = self.life.clone();
-            PluginClass {
+            Class {
                 inner: ptr,
                 life: world,
             }
@@ -735,17 +762,18 @@ impl PluginClasses {
     }
 }
 
-pub struct PluginClassesIter {
+/// An iterator over `Class`.
+pub struct ClassIter {
     classes: *mut lib::LilvPluginClasses,
     iter: *mut lib::LilvIter,
     life: Arc<Life>,
 }
 
-impl Iterator for PluginClassesIter {
-    type Item = PluginClass;
+impl Iterator for ClassIter {
+    type Item = Class;
 
     #[must_use]
-    fn next(&mut self) -> Option<PluginClass> {
+    fn next(&mut self) -> Option<Class> {
         let _life = self.life.inner.lock();
         let ptr = unsafe { lib::lilv_plugin_classes_get(self.classes, self.iter) };
         if ptr.is_null() {
@@ -755,7 +783,7 @@ impl Iterator for PluginClassesIter {
             Some({
                 let ptr = NonNull::new(ptr as _)?;
                 let world = self.life.clone();
-                PluginClass {
+                Class {
                     inner: ptr,
                     life: world,
                 }

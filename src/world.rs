@@ -1,5 +1,5 @@
 use crate::node::{Node, Nodes};
-use crate::plugin::PluginClass;
+use crate::plugin::Class;
 use crate::plugin::Plugins;
 use lilv_sys as lib;
 use parking_lot::Mutex;
@@ -52,13 +52,13 @@ impl World {
 impl World {
     /// Get the parent of all other plugin classes, lv2:Plugin.
     #[must_use]
-    pub fn plugin_class(&self) -> Option<PluginClass> {
+    pub fn plugin_class(&self) -> Option<Class> {
         let world = self.life.inner.lock();
         Some({
             let ptr =
                 NonNull::new(unsafe { lib::lilv_world_get_plugin_class(world.as_ptr()) as _ })?;
             let world = self.life.clone();
-            PluginClass {
+            Class {
                 inner: ptr,
                 life: world,
             }

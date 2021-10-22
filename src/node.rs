@@ -43,7 +43,7 @@ impl Node {
         unsafe { lib::lilv_node_is_uri(self.inner.as_ptr()) }
     }
 
-    /// Returns this value as a URI string.
+    /// Returns this value as a URI string or `None` if it is not a uri.
     #[must_use]
     pub fn as_uri(&self) -> Option<&str> {
         if self.is_uri() {
@@ -80,18 +80,22 @@ impl Node {
         }
     }
 
+    /// Returns `true` if the value is a literal (i.e. not a URI).
+    /// Returns `true` if the value is a string or numeric value.
     #[must_use]
     pub fn is_literal(&self) -> bool {
         let _life = self.life.inner.lock();
         unsafe { lib::lilv_node_is_literal(self.inner.as_ptr()) }
     }
 
+    /// Returns whether this value is a string literal.
     #[must_use]
     pub fn is_string(&self) -> bool {
         let _life = self.life.inner.lock();
         unsafe { lib::lilv_node_is_string(self.inner.as_ptr()) }
     }
 
+    /// Return the value as a string or `None` if it is not a string.
     #[must_use]
     pub fn as_str(&self) -> Option<&str> {
         let _life = self.life.inner.lock();
@@ -102,35 +106,37 @@ impl Node {
         })
     }
 
+    /// Return the path of a file URI node or `None` if it is not a file URI.
+    /// The returned values are `(hostname, path)`
     #[must_use]
-    pub fn get_path(&self) -> Option<(String, String)> {
+    pub fn path(&self) -> Option<(String, String)> {
+        let _life = self.life.inner.lock();
         let node = self.inner.as_ptr();
         let mut raw_hostname = std::ptr::null_mut();
-        let raw_path = NonNull::new(unsafe {
-            let _life = self.life.inner.lock();
-            lib::lilv_node_get_path(node, &mut raw_hostname)
-        })?;
+        let raw_path = NonNull::new(unsafe { lib::lilv_node_get_path(node, &mut raw_hostname) })?;
 
-        unsafe {
-            let path = CStr::from_ptr(raw_path.as_ptr())
-                .to_string_lossy()
-                .into_owned();
-            let hostname = CStr::from_ptr(raw_hostname).to_string_lossy().into_owned();
+        let path = unsafe { CStr::from_ptr(raw_path.as_ptr()) }
+            .to_string_lossy()
+            .into_owned();
+        let hostname = unsafe { CStr::from_ptr(raw_hostname) }
+            .to_string_lossy()
+            .into_owned();
 
-            let _life = self.life.inner.lock();
-            serd_free(raw_path.as_ptr().cast());
-            serd_free(raw_hostname.cast());
+        unsafe { serd_free(raw_path.as_ptr().cast()) };
+        unsafe { serd_free(raw_hostname.cast()) };
 
-            Some((path, hostname))
-        }
+        Some((hostname, path))
     }
 
+    /// Returns `true` if the value is a decimal literal.
     #[must_use]
     pub fn is_float(&self) -> bool {
         let _life = self.life.inner.lock();
         unsafe { lib::lilv_node_is_float(self.inner.as_ptr()) }
     }
 
+    /// Returns the value as an `f32` if it is an int or float. `None` is
+    /// returned otherwise.
     #[must_use]
     pub fn as_float(&self) -> Option<f32> {
         if self.is_float() {
@@ -141,12 +147,15 @@ impl Node {
         }
     }
 
+    /// Returns `true` if the value is an integer literal.
     #[must_use]
     pub fn is_int(&self) -> bool {
         let _life = self.life.inner.lock();
         unsafe { lib::lilv_node_is_int(self.inner.as_ptr()) }
     }
 
+    /// Returns the value as an `i32` if it is an int (not float) or `None`
+    /// otherwise.
     #[must_use]
     pub fn as_int(&self) -> Option<i32> {
         if self.is_int() {
@@ -157,12 +166,14 @@ impl Node {
         }
     }
 
+    /// Returns `true` if the value is a boolean literal.
     #[must_use]
     pub fn is_bool(&self) -> bool {
         let _life = self.life.inner.lock();
         unsafe { lib::lilv_node_is_bool(self.inner.as_ptr()) }
     }
 
+    /// Returns the value as a `bool` if it is a boolean or `None` otherwise.
     #[must_use]
     pub fn as_bool(&self) -> Option<bool> {
         if self.is_bool() {
@@ -209,18 +220,21 @@ impl Drop for Node {
     }
 }
 
+/// A collection of `Node`.
 pub struct Nodes {
     pub(crate) inner: *const lib::LilvNodes,
     pub(crate) life: Arc<Life>,
 }
 
 impl Nodes {
+    /// The number of nodes in the collection.
     #[must_use]
     pub fn count(&self) -> usize {
         let _life = self.life.inner.lock();
         unsafe { lib::lilv_nodes_size(self.inner) as _ }
     }
 
+    /// Returns `true` if a node with the given value exists in the collection.
     #[must_use]
     pub fn contains(&self, value: &Node) -> bool {
         let _life = self.life.inner.lock();
@@ -230,6 +244,9 @@ impl Nodes {
         unsafe { lib::lilv_nodes_contains(inner, value) }
     }
 
+    /// Return a new collection of `Nodes` that contains all the nodes from `a`
+    /// and `b`.
+    ///
     /// # Panics
     /// Panics if the merge is unsuccessful.
     #[must_use]
@@ -244,6 +261,7 @@ impl Nodes {
         }
     }
 
+    /// An iterator over all the nodes.
     pub fn iter(&self) -> impl '_ + Iterator<Item = Node> {
         let _life = self.life.inner.lock();
         NodesIter {
@@ -278,6 +296,7 @@ impl IntoIterator for Nodes {
     }
 }
 
+/// An iterator through a `Nodes` collection.
 pub struct NodesIter<NS> {
     inner: *mut lib::LilvIter,
     life: Arc<Life>,

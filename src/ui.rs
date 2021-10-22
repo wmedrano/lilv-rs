@@ -13,6 +13,8 @@ pub struct UI {
 }
 
 impl UI {
+    /// Get the URI of a Plugin UI.
+    ///
     /// # Panics
     /// Panics if it was not possible to get the URI.
     #[must_use]
@@ -31,6 +33,7 @@ impl UI {
         }
     }
 
+    /// Get the types (URIs of RDF classes) of a Plugin UI.
     #[must_use]
     pub fn classes(&self) -> Nodes {
         let _life = self.life.inner.lock();
@@ -41,6 +44,7 @@ impl UI {
         Nodes { inner, life: world }
     }
 
+    /// Returns `true` if the plugin UI has a given type.
     #[must_use]
     pub fn is_a(&self, class_uri: &Node) -> bool {
         let _life = self.life.inner.lock();
@@ -146,6 +150,7 @@ unsafe extern "C" fn supported_func<S: UISupport>(
     .0
 }
 
+/// A collection of plugin UIs.
 #[derive(Clone)]
 pub struct Uis {
     pub(crate) inner: NonNull<lib::LilvUIs>,
@@ -192,6 +197,7 @@ impl IntoIterator for Uis {
     }
 }
 
+/// An iterator over the UIs of a plugin.
 pub struct Iter {
     uis: Uis,
     iter: *mut lib::LilvIter,
