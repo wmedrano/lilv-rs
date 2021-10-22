@@ -25,7 +25,7 @@ impl Instance {
     #[must_use]
     pub fn uri(&self) -> Option<&str> {
         unsafe {
-            CStr::from_ptr((*self.inner.as_ref().lv2_descriptor).uri)
+            CStr::from_ptr(lib::lilv_instance_get_uri(self.inner.as_ptr()))
                 .to_str()
                 .ok()
         }
@@ -69,11 +69,7 @@ impl Instance {
             Err(_) => return,
         };
         let data_ptr: *mut T = data;
-        ((*self.inner.as_ref().lv2_descriptor).connect_port)(
-            self.inner.as_ref().lv2_handle,
-            port_index as u32,
-            data_ptr.cast(),
-        );
+        lib::lilv_instance_connect_port(self.inner.as_ptr(), port_index, data_ptr.cast());
     }
 
     /// Activate a plugin instance.
@@ -84,10 +80,9 @@ impl Instance {
     /// # Safety
     /// Calling external code may be unsafe.
     #[must_use]
-    pub unsafe fn activate(self) -> Option<ActiveInstance> {
-        let activate_fn = (*self.inner.as_ref().lv2_descriptor).activate?;
-        activate_fn(self.inner.as_ref().lv2_handle);
-        Some(ActiveInstance { inner: self })
+    pub unsafe fn activate(self) -> ActiveInstance {
+        lib::lilv_instance_activate(self.inner.as_ptr());
+        ActiveInstance { inner: self }
     }
 
     /// Get the extension data for a plugin instance.
@@ -102,20 +97,21 @@ impl Instance {
     pub unsafe fn extension_data<T>(&self, uri: &str) -> Option<NonNull<T>> {
         let uri = std::ffi::CString::new(uri).ok()?;
         NonNull::new(
-            ((*(self.inner.as_ref().lv2_descriptor)).extension_data)(uri.as_ptr().cast()) as _,
+            lib::lilv_instance_get_extension_data(self.inner.as_ptr(), uri.as_ptr().cast()) as _,
         )
     }
 
     /// Get the raw descriptor for the plugin.
     #[must_use]
     pub fn descriptor(&self) -> Option<&LV2Descriptor> {
-        unsafe { self.inner.as_ref().lv2_descriptor.as_ref() }
+        let d = unsafe { lib::lilv_instance_get_descriptor(self.inner.as_ptr()) };
+        unsafe { d.as_ref() }
     }
 
     /// Get the raw handle for the plugin instance.
     #[must_use]
     pub fn handle(&self) -> LV2Handle {
-        unsafe { self.inner.as_ref().lv2_handle }
+        unsafe { lib::lilv_instance_get_handle(self.inner.as_ptr()) }
     }
 }
 
@@ -127,18 +123,16 @@ impl Drop for Instance {
 
 impl ActiveInstance {
     /// Run the plugin instance for `sample_count` frames.
+    ///
     /// # Safety
     /// Calling external code may be unsafe.
     #[allow(clippy::cast_possible_truncation)]
     pub unsafe fn run(&mut self, sample_count: usize) {
-        let run = (*self.inner.inner.as_ref().lv2_descriptor).run;
-        let mut sc = sample_count;
-
-        while sc != 0 {
-            let n = sc.min(std::u32::MAX as _);
-            run(self.inner.inner.as_ref().lv2_handle, n as _);
-            sc -= n;
-        }
+        let sample_count = match u32::try_from(sample_count) {
+            Ok(sample_count) => sample_count,
+            Err(_) => u32::MAX,
+        };
+        lib::lilv_instance_run(self.instance().inner.as_ptr(), sample_count);
     }
 
     /// Deactivate the plugin instance.
@@ -160,11 +154,16 @@ impl ActiveInstance {
     }
 
     /// Get the underlying instance.
-    ///
-    /// This is useful to call `connect_port` if the data locations have changed.
     #[must_use]
     pub fn instance(&self) -> &Instance {
         &self.inner
+    }
+
+    /// Get the underlying instance.
+    ///
+    /// This is useful to call `connect_port` if the data locations have changed.
+    pub fn instance_mut(&mut self) -> &mut Instance {
+        &mut self.inner
     }
 
     fn deactive_impl(&mut self) -> Option<NonNull<lib::LilvInstanceImpl>> {
@@ -177,5 +176,33 @@ impl ActiveInstance {
 impl Drop for ActiveInstance {
     fn drop(&mut self) {
         self.deactive_impl();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_can_run_plugins() {
+        let world = crate::World::with_load_all();
+        for plugin in world.plugins() {
+            let uri = plugin.uri().as_uri().unwrap_or("").to_string();
+            let mut instance = unsafe { plugin.instantiate(44100.0, &[]).expect(&uri) };
+            let mut port_values: Vec<f32> = plugin
+                .iter_ports()
+                .map(|p| {
+                    p.range()
+                        .default
+                        .map(|n| n.as_float().unwrap_or(0.0))
+                        .unwrap_or(0.0)
+                })
+                .collect();
+            for (index, value) in port_values.iter_mut().enumerate() {
+                unsafe { instance.connect_port(index, value) };
+            }
+            let mut active_instance = unsafe { instance.activate() };
+            unsafe {
+                active_instance.run(1);
+            }
+        }
     }
 }
