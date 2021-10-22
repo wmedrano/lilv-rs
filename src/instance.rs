@@ -187,9 +187,13 @@ mod tests {
         for plugin in world.plugins() {
             let uri = plugin.uri().as_uri().unwrap_or("").to_string();
             let mut instance = unsafe {
-                plugin
-                    .instantiate(44100.0, &[])
-                    .unwrap_or_else(|| panic!("failed to instantiate {}", uri))
+                plugin.instantiate(44100.0, &[]).unwrap_or_else(|| {
+                    panic!(
+                        "failed to instantiate {} which has required features {:?}",
+                        uri,
+                        plugin.required_features()
+                    )
+                })
             };
             // The plugin instance needs a pointer to data to read and write
             // from.
