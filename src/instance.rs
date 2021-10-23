@@ -64,12 +64,20 @@ impl Instance {
     /// # Safety
     /// Connecting a port calls a plugin's code, which itself may be unsafe.
     pub unsafe fn connect_port<T>(&mut self, port_index: usize, data: &mut T) {
+        let data_ptr: *mut T = data;
+        self.connect_port_ptr(port_index, data_ptr);
+    }
+
+    /// Similar to `connect_port` but deals with the pointer directly.
+    ///
+    /// # Safety
+    /// Calls external plugin code which is unsafe.
+    pub unsafe fn connect_port_ptr<T>(&mut self, port_index: usize, data: *mut T) {
         let port_index = match u32::try_from(port_index) {
             Ok(port_index) => port_index,
             Err(_) => return,
         };
-        let data_ptr: *mut T = data;
-        lib::lilv_instance_connect_port(self.inner.as_ptr(), port_index, data_ptr.cast());
+        lib::lilv_instance_connect_port(self.inner.as_ptr(), port_index, data.cast());
     }
 
     /// Activate a plugin instance.
@@ -184,10 +192,14 @@ mod tests {
     #[test]
     fn test_can_run_plugins() {
         let world = crate::World::with_load_all();
+
+        let mut urid_map = crate::feature::UridMapFeature::default();
+
         for plugin in world.plugins() {
             let uri = plugin.uri().as_uri().unwrap_or("").to_string();
+            let features = [urid_map.as_lv2_feature_mut()];
             let mut instance = unsafe {
-                plugin.instantiate(44100.0, &[]).unwrap_or_else(|| {
+                plugin.instantiate(44100.0, features).unwrap_or_else(|| {
                     panic!(
                         "failed to instantiate {} which has required features {:?}",
                         uri,

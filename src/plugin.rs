@@ -481,15 +481,14 @@ impl Plugin {
     /// Instantiating a plugin calls the plugin's code which itself may be
     /// unsafe.
     #[must_use]
-    pub unsafe fn instantiate(
-        &self,
-        sample_rate: f64,
-        features: &[lv2_raw::LV2Feature],
-    ) -> Option<Instance> {
+    pub unsafe fn instantiate<'a, I>(&self, sample_rate: f64, features: I) -> Option<Instance>
+    where
+        I: IntoIterator<Item = &'a mut lv2_raw::LV2Feature>,
+    {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
         let features: Vec<*const lv2_raw::LV2Feature> = features
-            .iter()
+            .into_iter()
             .map(|f| f as *const _)
             .chain(std::iter::once(std::ptr::null()))
             .collect();
