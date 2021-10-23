@@ -191,52 +191,41 @@ impl Drop for ActiveInstance {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_collect_good_plugins() {
+    fn test_can_run_plugin() {
         let world = crate::World::with_load_all();
-        let mut bad = Vec::new();
-        let mut good = Vec::new();
-        for plugin in world.plugins() {
-            let uri = plugin.uri().as_uri().unwrap_or("bad").to_string();
-            if unsafe { plugin.instantiate(44100.0, []).is_none() } {
-                bad.push(uri.to_string());
-                continue;
-            }
-            good.push(uri.to_string());
+        // This is the only plugin that doesn't require a feature.
+        // Most require at least URID Map.
+        let uri = world.new_uri("http://lv2plug.in/plugins/eg-amp");
+        let plugin = world
+            .plugins()
+            .plugin(&uri)
+            .unwrap_or_else(|| panic!("Could not find plugin {:?}", uri));
+        let uri = plugin.uri().as_uri().unwrap_or("").to_string();
+        let mut instance = unsafe {
+            plugin.instantiate(44100.0, []).unwrap_or_else(|| {
+                panic!(
+                    "failed to instantiate {} which has required features {:?}",
+                    uri,
+                    plugin.required_features()
+                )
+            })
+        };
+        // The plugin instance needs a pointer to data to read and write
+        // from.
+        let mut port_values: Vec<f32> = plugin
+            .iter_ports()
+            .map(|p| {
+                p.range()
+                    .default
+                    .map_or(0.0, |n| n.as_float().unwrap_or(0.0))
+            })
+            .collect();
+        for (index, value) in port_values.iter_mut().enumerate() {
+            unsafe { instance.connect_port(index, value) };
         }
-        assert_eq!(Vec::<String>::new(), bad, "good are {:?}", good);
-    }
-
-    #[test]
-    fn test_can_run_plugins() {
-        let world = crate::World::with_load_all();
-        for plugin in world.plugins() {
-            let uri = plugin.uri().as_uri().unwrap_or("").to_string();
-            let mut instance = unsafe {
-                plugin.instantiate(44100.0, []).unwrap_or_else(|| {
-                    panic!(
-                        "failed to instantiate {} which has required features {:?}",
-                        uri,
-                        plugin.required_features()
-                    )
-                })
-            };
-            // The plugin instance needs a pointer to data to read and write
-            // from.
-            let mut port_values: Vec<f32> = plugin
-                .iter_ports()
-                .map(|p| {
-                    p.range()
-                        .default
-                        .map_or(0.0, |n| n.as_float().unwrap_or(0.0))
-                })
-                .collect();
-            for (index, value) in port_values.iter_mut().enumerate() {
-                unsafe { instance.connect_port(index, value) };
-            }
-            let mut active_instance = unsafe { instance.activate() };
-            unsafe {
-                active_instance.run(1);
-            }
+        let mut active_instance = unsafe { instance.activate() };
+        unsafe {
+            active_instance.run(1);
         }
     }
 }
