@@ -4,6 +4,7 @@ use crate::port::{FloatRanges, Port};
 use crate::ui::Uis;
 use crate::world::Life;
 use lilv_sys as lib;
+use lv2_raw::LV2Feature;
 use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt::Debug;
@@ -481,22 +482,21 @@ impl Plugin {
     /// Instantiating a plugin calls the plugin's code which itself may be
     /// unsafe.
     #[must_use]
-    pub unsafe fn instantiate(
-        &self,
-        sample_rate: f64,
-        features: &[lv2_raw::LV2Feature],
-    ) -> Option<Instance> {
+    pub unsafe fn instantiate<'a, FS>(&self, sample_rate: f64, features: FS) -> Option<Instance>
+    where
+        FS: IntoIterator<Item = &'a mut LV2Feature>,
+    {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
-        let features: Vec<*const lv2_raw::LV2Feature> = features
-            .iter()
-            .map(|f| f as *const _)
+        let features_vec: Vec<*const LV2Feature> = features
+            .into_iter()
+            .map(|f| f as *const LV2Feature)
             .chain(std::iter::once(std::ptr::null()))
             .collect();
         let inner = NonNull::new(lib::lilv_plugin_instantiate(
             plugin,
             sample_rate,
-            features.as_ptr(),
+            features_vec.as_ptr(),
         ))?;
 
         Some(Instance { inner })
