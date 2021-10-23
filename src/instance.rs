@@ -184,10 +184,14 @@ mod tests {
     #[test]
     fn test_can_run_plugins() {
         let world = crate::World::with_load_all();
+
+        let mut urid_map = crate::feature::UridMapFeature::default();
+
         for plugin in world.plugins() {
             let uri = plugin.uri().as_uri().unwrap_or("").to_string();
+            let features = [urid_map.as_lv2_feature_mut()];
             let mut instance = unsafe {
-                plugin.instantiate(44100.0, &[]).unwrap_or_else(|| {
+                plugin.instantiate(44100.0, features).unwrap_or_else(|| {
                     panic!(
                         "failed to instantiate {} which has required features {:?}",
                         uri,

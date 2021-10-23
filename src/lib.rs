@@ -1,3 +1,5 @@
+/// Contains implementation for LV2 features.
+pub mod feature;
 /// Contains functionality for plugin instances that process data.
 pub mod instance;
 /// Contains functionality for nodes. Nodes are used to represent metadata.
