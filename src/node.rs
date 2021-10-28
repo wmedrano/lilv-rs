@@ -198,9 +198,7 @@ impl Clone for Node {
 
 impl Debug for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Node")
-            .field("turtle_token", &self.turtle_token())
-            .finish()
+        f.debug_tuple("Node").field(&self.turtle_token()).finish()
     }
 }
 
@@ -274,8 +272,7 @@ impl Nodes {
 
 impl Debug for Nodes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let nodes = self.iter().collect::<Vec<_>>();
-        f.debug_struct("Nodes").field("nodes", &nodes).finish()
+        f.debug_list().entries(self.iter()).finish()
     }
 }
 
