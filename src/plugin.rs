@@ -484,7 +484,7 @@ impl Plugin {
     #[must_use]
     pub unsafe fn instantiate<'a, FS>(&self, sample_rate: f64, features: FS) -> Option<Instance>
     where
-        FS: IntoIterator<Item = &'a mut LV2Feature>,
+        FS: IntoIterator<Item = &'a LV2Feature>,
     {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
