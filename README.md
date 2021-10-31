@@ -1,7 +1,9 @@
 # lilv-rs
 
-[![crates.io](https://img.shields.io/crates/v/lilv.svg)](https://crates.io/crates/lilv) [![docs.rs](https://docs.rs/lilv/badge.svg)](https://docs.rs/lilv)
+[![crates.io](https://img.shields.io/crates/v/lilv.svg)](https://crates.io/crates/lilv)
+[![docs.rs](https://docs.rs/lilv/badge.svg)](https://docs.rs/lilv)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://github.com/wmedrano/lilv-rs/actions/workflows/test.yml/badge.svg)](https://github.com/wmedrano/lilv-rs/actions/workflows/test.yml)
 
 [:heart: Sponsor](https://github.com/sponsors/wmedrano)
