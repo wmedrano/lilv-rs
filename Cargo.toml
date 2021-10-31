@@ -2,12 +2,13 @@
 authors = ["Will Medrano <will.s.medrano@gmail.com", "Henna Haahti <grejppi@gmail.com>"]
 build = "build.rs"
 description = "Library for discovering and running LV2 plugins."
+documentation = "https://docs.rs/lilv"
 edition = "2018"
 keywords = ["lilv", "lv2", "audio"]
 license = "MIT"
 name = "lilv"
 readme = "README.md"
-version = "0.0.6"
+version = "0.1.0"
 
 [dependencies]
 lilv-sys = "0.2"
