@@ -63,22 +63,24 @@ impl Instance {
     ///
     /// # Safety
     /// Connecting a port calls a plugin's code, which itself may be unsafe.
-    pub unsafe fn connect_port<T>(&mut self, port_index: usize, data: &mut T) {
-        let data_ptr: *mut T = data;
-        self.connect_port_ptr(port_index, data_ptr);
+    pub unsafe fn connect_port_mut<T>(&mut self, port_index: usize, data: *mut T) {
+        let port_index = port_index as u32;
+        lib::lilv_instance_connect_port(self.inner.as_ptr(), port_index, data.cast());
     }
 
     /// Connect data pointer to a port on a plugin instance. Similar to
-    /// `connect_port` but takes a pointer instead.
+    /// `connect_port_mut` but takes a const pointer instead.
+    ///
+    /// # Note
+    /// Although this takes a const pointer, it is not guaranteed that the
+    /// plugin wants to treat the data as const. This method exists for
+    /// convinience, but developers should still make sure double check that the
+    /// port is an input and not an output port.
     ///
     /// # Safety
     /// Connecting a port calls a plugin's code, which itself may be unsafe.
-    pub unsafe fn connect_port_ptr<T>(&mut self, port_index: usize, data: *mut T) {
-        let port_index = match u32::try_from(port_index) {
-            Ok(port_index) => port_index,
-            Err(_) => return,
-        };
-        lib::lilv_instance_connect_port(self.inner.as_ptr(), port_index, data.cast());
+    pub unsafe fn connect_port<T>(&mut self, port_index: usize, data: *const T) {
+        self.connect_port_mut(port_index, data as *mut T);
     }
 
     /// Activate a plugin instance.
