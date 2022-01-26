@@ -64,8 +64,12 @@ impl Instance {
     /// # Safety
     /// Connecting a port calls a plugin's code, which itself may be unsafe.
     pub unsafe fn connect_port_mut<T>(&mut self, port_index: usize, data: *mut T) {
-        let port_index = port_index as u32;
-        lib::lilv_instance_connect_port(self.inner.as_ptr(), port_index, data.cast());
+        match u32::try_from(port_index) {
+            Ok(port_index) => {
+                lib::lilv_instance_connect_port(self.inner.as_ptr(), port_index, data.cast())
+            }
+            Err(e) => debug_assert!(false, "port_index is too large: {}", e),
+        }
     }
 
     /// Connect data pointer to a port on a plugin instance. Similar to
