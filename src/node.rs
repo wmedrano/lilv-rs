@@ -323,6 +323,21 @@ where
     }
 }
 
+impl<NS> Debug for NodesIter<NS>
+where
+    NS: Borrow<Nodes>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // tmp can be iterated over without advancing the self iterator.
+        let tmp = NodesIter {
+            inner: self.inner,
+            life: self.life.clone(),
+            nodes: self.nodes.borrow(),
+        };
+        f.debug_list().entries(tmp).finish()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
