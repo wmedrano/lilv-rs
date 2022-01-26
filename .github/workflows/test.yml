@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Cargo & Rust version
+        run: cargo --version && rustc --version
       - name: Install Dependencies
         run: sudo apt-get -y install liblilv-dev lv2-examples
       - name: Checkout Repository
