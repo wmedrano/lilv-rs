@@ -16,6 +16,7 @@ pub struct World {
 }
 
 #[doc(hidden)]
+#[allow(clippy::non_send_fields_in_send_ty)]
 pub struct Life {
     pub(crate) inner: Mutex<NonNull<lib::LilvWorldImpl>>,
 }

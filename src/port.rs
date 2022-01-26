@@ -253,14 +253,16 @@ impl Debug for Port {
     }
 }
 
-unsafe impl Send for ScalePoint {}
 unsafe impl Sync for ScalePoint {}
 
 #[derive(Clone)]
 pub struct ScalePoint {
     pub(crate) inner: NonNull<lib::LilvScalePoint>,
     pub(crate) port: Port,
-    pub(crate) collection: ScalePoints,
+
+    // The underlying ScalePoints must be kept alive for the lifetime of the
+    // ScalePoint object.
+    _collection: ScalePoints,
 }
 
 impl ScalePoint {
@@ -398,7 +400,7 @@ impl Iterator for ScalePointsIter {
         let next = Some(ScalePoint {
             inner: NonNull::new(next_ptr)?,
             port: self.inner.port.clone(),
-            collection: self.inner.clone(),
+            _collection: self.inner.clone(),
         });
         self.iter = unsafe { lib::lilv_scale_points_next(self.inner.inner, self.iter) };
         next

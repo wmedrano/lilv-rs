@@ -14,12 +14,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Cargo & Rust version
+        run: cargo --version && rustc --version
       - name: Install Dependencies
         run: sudo apt-get -y install liblilv-dev lv2-examples
       - name: Checkout Repository
         uses: actions/checkout@v2
       - name: Lint
-        run: cargo clippy --all-targets --all-features -- -D clippy::all -D clippy::pedantic
+        run: cargo clippy --all-targets --all-features -- -D clippy::all
       - name: Build
         run: cargo build --verbose
       - name: Run tests
