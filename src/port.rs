@@ -253,7 +253,6 @@ impl Debug for Port {
     }
 }
 
-unsafe impl Send for ScalePoint {}
 unsafe impl Sync for ScalePoint {}
 
 #[derive(Clone)]
