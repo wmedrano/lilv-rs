@@ -140,8 +140,8 @@ pub trait UISupport {
 }
 
 unsafe extern "C" fn supported_func<S: UISupport>(
-    container_type_uri: *const i8,
-    ui_type_uri: *const i8,
+    container_type_uri: *const std::os::raw::c_char,
+    ui_type_uri: *const std::os::raw::c_char,
 ) -> u32 {
     S::supported(
         CStr::from_ptr(container_type_uri).to_str().unwrap(),
