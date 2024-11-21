@@ -118,12 +118,19 @@ impl Node {
         let path = unsafe { CStr::from_ptr(raw_path.as_ptr()) }
             .to_string_lossy()
             .into_owned();
-        let hostname = unsafe { CStr::from_ptr(raw_hostname) }
+
+        let hostname = if !raw_hostname.is_null() {
+            let hostname = unsafe { CStr::from_ptr(raw_hostname) }
             .to_string_lossy()
             .into_owned();
+            unsafe { serd_free(raw_hostname.cast()) };
+            hostname
+        }
+        else {
+            "".to_string()
+        };
 
         unsafe { serd_free(raw_path.as_ptr().cast()) };
-        unsafe { serd_free(raw_hostname.cast()) };
 
         Some((hostname, path))
     }
@@ -354,5 +361,19 @@ mod tests {
         for n in nodes {
             panic!("Should not have any nodes but found {}", n.turtle_token());
         }
+    }
+
+    #[test]
+    fn test_path() {
+        let world = crate::World::with_load_all();
+        let uri = world.new_uri("http://lv2plug.in/plugins/eg-amp");
+        let plugin = world
+            .plugins()
+            .plugin(&uri)
+            .unwrap_or_else(|| panic!("Could not find plugin {:?}", uri));
+        let plugin_library_uri_node = plugin.library_uri().expect("Missing plugin library uri.");
+        let (hostname, path) = plugin_library_uri_node.path().expect("Missing plugin library path.");
+        assert_eq!(hostname, "");
+        assert!(path.ends_with("/eg-amp.lv2/amp.so"));
     }
 }
