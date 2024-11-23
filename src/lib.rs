@@ -11,4 +11,5 @@ pub mod ui;
 
 mod world;
 
+pub use lilv_sys as sys;
 pub use world::World;

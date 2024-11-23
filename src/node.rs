@@ -183,6 +183,11 @@ impl Node {
             None
         }
     }
+
+    /// Return the underlying node pointer.
+    pub fn as_ptr(&self) -> *mut lib::LilvNodeImpl {
+        self.inner.as_ptr()
+    }
 }
 
 impl Clone for Node {

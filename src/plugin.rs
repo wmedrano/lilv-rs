@@ -801,7 +801,7 @@ mod tests {
         let world = World::new();
         for plugin in world.plugins() {
             // Just making sure nothing segfaults.
-            format!("{:?}", plugin);
+            _ = format!("{:?}", plugin);
         }
     }
 }

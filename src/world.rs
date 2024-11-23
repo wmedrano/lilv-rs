@@ -393,6 +393,14 @@ impl World {
     }
 }
 
+impl World {
+    /// Get the underlying pointer to the `World`.
+    pub fn as_ptr(&self) -> *mut lib::LilvWorldImpl {
+        let inner = self.life.inner.lock();
+        inner.as_ptr()
+    }
+}
+
 impl Default for World {
     /// Return a new empty world.
     fn default() -> World {

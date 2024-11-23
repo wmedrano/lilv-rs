@@ -8,7 +8,7 @@ keywords = ["lilv", "lv2", "audio"]
 license = "MIT"
 name = "lilv"
 readme = "README.md"
-version = "0.2.2"
+version = "0.2.3"
 
 [dependencies]
 lilv-sys = "0.2"
