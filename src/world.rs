@@ -1,8 +1,10 @@
 use crate::node::{Node, Nodes};
 use crate::plugin::Class;
 use crate::plugin::Plugins;
+use crate::state::State;
 use lilv_sys as lib;
 use parking_lot::Mutex;
+use std::ffi::CStr;
 use std::ptr::NonNull;
 use std::sync::Arc;
 
@@ -390,6 +392,17 @@ impl World {
                 life: world,
             }
         })
+    }
+}
+
+impl World {
+    pub fn new_state(&self, map: &mut lv2_raw::LV2UridMap, s: &CStr) -> State {
+        let world_ptr = self.life.inner.try_lock().unwrap().as_ptr();
+        let state_ptr = unsafe { lib::lilv_state_new_from_string(world_ptr, map, s.as_ptr()) };
+        State {
+            world: self.life.clone(),
+            inner: NonNull::new(state_ptr).unwrap(),
+        }
     }
 }
 
