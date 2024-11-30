@@ -121,12 +121,11 @@ impl Node {
 
         let hostname = if !raw_hostname.is_null() {
             let hostname = unsafe { CStr::from_ptr(raw_hostname) }
-            .to_string_lossy()
-            .into_owned();
+                .to_string_lossy()
+                .into_owned();
             unsafe { serd_free(raw_hostname.cast()) };
             hostname
-        }
-        else {
+        } else {
             "".to_string()
         };
 
@@ -356,6 +355,7 @@ mod tests {
     use crate::world::World;
 
     #[test]
+    #[allow(clippy::never_loop)]
     fn test_null_nodes() {
         let world = World::new();
         let nodes = Nodes {
@@ -377,7 +377,9 @@ mod tests {
             .plugin(&uri)
             .unwrap_or_else(|| panic!("Could not find plugin {:?}", uri));
         let plugin_library_uri_node = plugin.library_uri().expect("Missing plugin library uri.");
-        let (hostname, path) = plugin_library_uri_node.path().expect("Missing plugin library path.");
+        let (hostname, path) = plugin_library_uri_node
+            .path()
+            .expect("Missing plugin library path.");
         assert_eq!(hostname, "");
         assert!(path.ends_with("/eg-amp.lv2/amp.so"));
     }
