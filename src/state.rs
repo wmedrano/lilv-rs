@@ -468,7 +468,6 @@ mod tests {
         assert!(state.is_some());
     }
 
-    /*
     #[test]
     fn test_new_from_file() {
         let world = World::with_load_all();
@@ -480,8 +479,10 @@ mod tests {
             map: do_map,
         };
 
+    /*
         let state = world.new_state_from_file(&mut lv2_urid_map, None, "");
         assert!(state.is_none());
+        */
     }
 
     #[test]
@@ -546,5 +547,4 @@ mod tests {
         assert!(saved_state.uri() == Some(plugin_uri_node));
         saved_state.restore(&instance, None, lv2_sys::LV2_State_Flags::LV2_STATE_IS_PORTABLE, &features);
     }
-    */
 }
