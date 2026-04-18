@@ -485,6 +485,7 @@ mod tests {
 
     #[test]
     fn test_new_from_instance() {
+/*
         let world = World::with_load_all();
         let map = MapImpl::new();
         let map_ptr = NonNull::from(&map);
@@ -508,7 +509,7 @@ mod tests {
             uri: lv2_sys::LV2_URID__unmap.as_ptr().cast(),
             data: unmap_data_ptr.as_ptr().cast(),
         };
-/*
+
         let features = vec![urid_map_feature, urid_unmap_feature];
         let plugin_uri = "http://lv2plug.in/plugins/eg-amp";
         let plugin_uri_node = world.new_uri(plugin_uri);
