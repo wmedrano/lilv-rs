@@ -310,7 +310,7 @@ impl State {
         let world_ptr = self.world.inner.lock().as_ptr();
         let unmap = NonNull::from(unmap).as_ptr().cast();
         let c_uri = CString::new(uri.unwrap_or_default()).unwrap();
-        let uri: *const c_char = uri.map_or(std::ptr::null(), |_| c_uri.as_ptr().cast());
+        let uri: *const c_char = uri.map_or(std::ptr::null(), |_| c_uri.as_ptr());
         let dir = CString::new(dir).unwrap();
         let filename = CString::new(filename).unwrap();
 
@@ -478,11 +478,48 @@ mod tests {
             handle: map_ptr.as_ptr().cast(),
             map: do_map,
         };
+        let mut lv2_urid_unmap = lv2_sys::LV2_URID_Unmap {
+            handle: map_ptr.as_ptr().cast(),
+            unmap: Some(do_unmap),
+        };
+        let map_data_ptr = NonNull::from(&lv2_urid_map);
+        let urid_map_feature = LV2Feature {
+            uri: lv2_sys::LV2_URID__map.as_ptr().cast(),
+            data: map_data_ptr.as_ptr().cast(),
+        };
 
-    /*
-        let state = world.new_state_from_file(&mut lv2_urid_map, None, "");
-        assert!(state.is_none());
-        */
+        let unmap_data_ptr = NonNull::from(&lv2_urid_unmap);
+        let urid_unmap_feature = LV2Feature {
+            uri: lv2_sys::LV2_URID__unmap.as_ptr().cast(),
+            data: unmap_data_ptr.as_ptr().cast(),
+        };
+
+        let features = vec![urid_map_feature, urid_unmap_feature];
+        let plugin_uri = "http://lv2plug.in/plugins/eg-amp";
+        let plugin_uri_node = world.new_uri(plugin_uri);
+        let plugin = world.plugins().plugin(&plugin_uri_node).unwrap();
+        let instance = unsafe{ plugin.instantiate(44100., &features)};
+        assert!(instance.is_some());
+        let instance = instance.unwrap();
+
+        let state = plugin.new_state_from_instance(
+            &instance,
+            &mut lv2_urid_map,
+            None,
+            None,
+            None,
+            None,
+            None,
+            lv2_sys::LV2_State_Flags::LV2_STATE_IS_PORTABLE,
+            &features
+        );
+
+        let res = state.unwrap().save(&mut lv2_urid_map, &mut lv2_urid_unmap, Some(plugin_uri), ".", "filename");
+        assert!(res == Ok(()));
+
+        let subject = world.new_uri("http://lv2plug.in/plugins/eg-amp");
+        let state = world.new_state_from_file(&mut lv2_urid_map, Some(&subject), "filename");
+        assert!(state.is_some());
     }
 
     #[test]
@@ -495,16 +532,16 @@ mod tests {
             handle: map_ptr.as_ptr().cast(),
             map: do_map,
         };
+        let mut lv2_urid_unmap = lv2_sys::LV2_URID_Unmap {
+            handle: map_ptr.as_ptr().cast(),
+            unmap: Some(do_unmap),
+        };
         let map_data_ptr = NonNull::from(&lv2_urid_map);
         let urid_map_feature = LV2Feature {
             uri: lv2_sys::LV2_URID__map.as_ptr().cast(),
             data: map_data_ptr.as_ptr().cast(),
         };
 
-        let mut lv2_urid_unmap = lv2_sys::LV2_URID_Unmap {
-            handle: map_ptr.as_ptr().cast(),
-            unmap: Some(do_unmap),
-        };
         let unmap_data_ptr = NonNull::from(&lv2_urid_unmap);
         let urid_unmap_feature = LV2Feature {
             uri: lv2_sys::LV2_URID__unmap.as_ptr().cast(),
