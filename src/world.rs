@@ -409,7 +409,7 @@ impl World {
     /// the plugin URI as the `subject` parameter.
     /// The `subject` of the state description can be a preset URI for instance.
     pub fn new_state(&self, map: &mut lv2_raw::LV2UridMap, subject: &Node) -> Option<State> {
-        let world_ptr = self.life.inner.try_lock().unwrap().as_ptr();
+        let world_ptr = self.as_ptr();
         let subject = subject.inner.as_ptr();
 
         let state_ptr = unsafe { lib::lilv_state_new_from_world(world_ptr, map, subject) };
@@ -426,7 +426,7 @@ impl World {
     /// parse the file into the world model, i.e. the returned state is the only
     /// new memory consumed once this function returns.
     pub fn new_state_from_file(&self, map: &mut lv2_raw::LV2UridMap, subject: Option<&Node>, path: &str) -> Option<State> {
-        let world_ptr = self.life.inner.try_lock().unwrap().as_ptr();
+        let world_ptr = self.as_ptr();
         let subject = subject.map_or(std::ptr::null(), |s| s.inner.as_ptr());
         let path = std::ffi::CString::new(path).unwrap();
 
@@ -437,7 +437,7 @@ impl World {
 
     /// Load a state snapshot from a string made by [`crate::state::State::to_string()`].
     pub fn new_state_from_string(&self, map: &mut lv2_raw::LV2UridMap, string: &str) -> Option<State> {
-        let world_ptr = self.life.inner.try_lock().unwrap().as_ptr();
+        let world_ptr = self.as_ptr();
         let s = std::ffi::CString::new(string).unwrap();
 
         let state_ptr = unsafe { lib::lilv_state_new_from_string(world_ptr, map, s.as_ptr())};

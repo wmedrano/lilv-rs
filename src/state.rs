@@ -16,12 +16,12 @@ unsafe impl Sync for State {}
 
 pub type Value = *const c_void;
 
-/// Convert an objet to a generic port value.
+/// Convert an object to a generic port value.
 pub fn value<T>(obj: &T) -> Value {
     NonNull::from(obj).as_ptr().cast()
 }
 
-/// Convert a generic port value to an objet. The requested data type must be the same as that of the corresponding port.
+/// Convert a generic port value to an object. The requested data type must be the same as that of the corresponding port.
 pub fn from_value<T>(value: &mut Value) -> &mut T {
     unsafe { &mut *(*value as *mut T) }
 }
@@ -157,23 +157,26 @@ impl State {
 
     /// Get the URI of the plugin the state applies to.
     pub fn plugin_uri(&self) -> Node {
+        let _life = self.world.inner.lock();
         let node_ptr = unsafe { lib::lilv_state_get_plugin_uri(self.inner.as_ptr()) }.cast_mut();
-        let node = Node {
-            inner: NonNull::new(node_ptr).unwrap(),
-            borrowed: true,
+
+        Node {
+            inner: NonNull::new(unsafe { lib::lilv_node_duplicate(node_ptr) }).unwrap(),
+            borrowed: false,
             life: self.world.clone(),
-        };
-        node.clone()
+        }
     }
 
     /// Get the URI of the state.
     /// 
     /// This may return None if the state has not been saved and has no URI.
     pub fn uri(&self) -> Option<Node> {
+        let _life = self.world.inner.lock();
         let node_ptr = unsafe { lib::lilv_state_get_uri(self.inner.as_ptr()) }.cast_mut();
+
         Some(Node {
-            inner: NonNull::new(node_ptr)?,
-            borrowed: true,
+            inner: NonNull::new(unsafe { lib::lilv_node_duplicate(node_ptr) })?,
+            borrowed: false,
             life: self.world.clone(),
         })
     }
@@ -515,7 +518,7 @@ mod tests {
         );
 
         let res = state.unwrap().save(&mut lv2_urid_map, &mut lv2_urid_unmap, Some(plugin_uri), ".", "filename");
-        assert!(res == Ok(()));
+        assert!(res.is_ok());
 
         let subject = world.new_uri("http://lv2plug.in/plugins/eg-amp");
         let state = world.new_state_from_file(&mut lv2_urid_map, Some(&subject), "filename");
