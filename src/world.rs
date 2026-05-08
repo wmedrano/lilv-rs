@@ -1,6 +1,7 @@
 use crate::node::{Node, Nodes};
 use crate::plugin::Class;
 use crate::plugin::Plugins;
+use crate::state::State;
 use lilv_sys as lib;
 use parking_lot::Mutex;
 use std::ptr::NonNull;
@@ -127,7 +128,7 @@ impl World {
             .find_map(|h| std::ffi::CString::new(h.as_bytes()).ok());
         let path = std::ffi::CString::new(path.as_bytes()).unwrap();
 
-        let host_ptr = host.map_or(std::ptr::null(), |h| h.as_ptr());
+        let host_ptr = host.as_ref().map_or(std::ptr::null(), |h| h.as_ptr());
         let path_ptr = path.as_ptr();
 
         {
@@ -401,12 +402,57 @@ impl World {
     }
 }
 
+impl World {
+    /// Load a state snapshot from the world RDF model.
+    /// 
+    /// This function can be used to load the default state of a plugin by passing
+    /// the plugin URI as the `subject` parameter.
+    /// The `subject` of the state description can be a preset URI for instance.
+    pub fn new_state(&self, map: &mut lv2_raw::LV2UridMap, subject: &Node) -> Option<State> {
+        let world_ptr = self.as_ptr();
+        let subject = subject.inner.as_ptr();
+
+        let state_ptr = unsafe { lib::lilv_state_new_from_world(world_ptr, map, subject) };
+
+        State::new(self.life.clone(), state_ptr)
+    }
+    
+    /// Load a state snapshot from a file.
+    /// 
+    /// If `subject` is None, it is taken to be the URI of the file (i.e.
+    /// \"<>\" in Turtle).
+    /// 
+    /// This function parses the file indicated by `path` separately to create the state, it does not
+    /// parse the file into the world model, i.e. the returned state is the only
+    /// new memory consumed once this function returns.
+    pub fn new_state_from_file(&self, map: &mut lv2_raw::LV2UridMap, subject: Option<&Node>, path: &str) -> Option<State> {
+        let world_ptr = self.as_ptr();
+        let subject = subject.map_or(std::ptr::null(), |s| s.inner.as_ptr());
+        let path = std::ffi::CString::new(path).unwrap();
+
+        let state_ptr = unsafe { lib::lilv_state_new_from_file(world_ptr, map, subject, path.as_ptr())};
+
+        State::new(self.life.clone(), state_ptr)
+    }
+
+    /// Load a state snapshot from a string made by [`crate::state::State::to_string()`].
+    pub fn new_state_from_string(&self, map: &mut lv2_raw::LV2UridMap, string: &str) -> Option<State> {
+        let world_ptr = self.as_ptr();
+        let s = std::ffi::CString::new(string).unwrap();
+
+        let state_ptr = unsafe { lib::lilv_state_new_from_string(world_ptr, map, s.as_ptr())};
+
+        State::new(self.life.clone(), state_ptr)
+    }
+}
+
 impl Default for World {
     /// Return a new empty world.
     fn default() -> World {
         World::new()
     }
 }
+
 
 impl Drop for Life {
     fn drop(&mut self) {
