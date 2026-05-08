@@ -233,13 +233,14 @@ impl State {
     /// This is useful in hosts that need to retrieve the port values in a state snapshot for special handling.
     pub fn emit_port_values(
         &self,
-        user: &mut dyn SetPortValue,
+        user: Option<&mut dyn SetPortValue>,
     ) {
-        let set_value: lib::LilvSetPortValueFunc = Some(set_port_value_func);
-        let some_user = Some(user);
-        let user_data = NonNull::from(&some_user).as_ptr().cast();
-
-        unsafe { lib::lilv_state_emit_port_values(self.inner.as_ptr(), set_value, user_data); }
+        if user.is_some() {
+            let set_value: lib::LilvSetPortValueFunc = Some(set_port_value_func);
+            let user_data = NonNull::from(&user).as_ptr().cast();
+            
+            unsafe { lib::lilv_state_emit_port_values(self.inner.as_ptr(), set_value, user_data); }
+        }
     }
 
     /// Restore a plugin instance from a state snapshot.
