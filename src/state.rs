@@ -428,7 +428,7 @@ mod tests {
     use crate::world::World;
 
     type MapImpl = HashMap<CString, u32>;
-
+    
     extern "C" fn do_map(handle: lv2_raw::LV2UridMapHandle, uri_ptr: *const i8) -> lv2_raw::LV2Urid {
         let handle = handle as *mut MapImpl;
         let map = unsafe { &mut *handle };
@@ -454,44 +454,58 @@ mod tests {
         std::ptr::null()
     }
 
+    struct UridMap {
+        uri_id_map: MapImpl,
+    }
+    impl UridMap {
+        pub fn new() -> UridMap {
+            Self {
+                uri_id_map: MapImpl::new(),
+            }
+        }
+        pub fn as_lv2_urid_map(&mut self) -> lv2_raw::LV2UridMap {
+            let map_ptr = NonNull::from(&self.uri_id_map);
+    
+            lv2_raw::LV2UridMap {
+                handle: map_ptr.as_ptr().cast(),
+                map: do_map,
+            }
+        }
+        pub fn as_lv2_urid_unmap(&mut self) -> lv2_sys::LV2_URID_Unmap {
+            let map_ptr = NonNull::from(&self.uri_id_map);
+    
+            lv2_sys::LV2_URID_Unmap {
+                handle: map_ptr.as_ptr().cast(),
+                unmap: Some(do_unmap),
+            }
+        }
+    }
+
     #[test]
     fn test_new_from_world() {
         let world = World::with_load_all();
-        let map = MapImpl::new();
-        let map_ptr = NonNull::from(&map);
-
-        let mut lv2_urid_map = lv2_raw::LV2UridMap {
-            handle: map_ptr.as_ptr().cast(),
-            map: do_map,
-        };
+        let mut urid_map = UridMap::new();
 
         let subject = world.new_uri("http://lv2plug.in/plugins/eg-amp");
 
-        let state = world.new_state(&mut lv2_urid_map, &subject);
+        let state = world.new_state(&mut urid_map.as_lv2_urid_map(), &subject);
         assert!(state.is_some());
     }
 
     #[test]
     fn test_new_from_file() {
         let world = World::with_load_all();
-        let map = MapImpl::new();
-        let map_ptr = NonNull::from(&map);
+        let mut urid_map = UridMap::new();
+        let mut map = urid_map.as_lv2_urid_map();
+        let mut unmap = urid_map.as_lv2_urid_unmap();
 
-        let mut lv2_urid_map = lv2_raw::LV2UridMap {
-            handle: map_ptr.as_ptr().cast(),
-            map: do_map,
-        };
-        let mut lv2_urid_unmap = lv2_sys::LV2_URID_Unmap {
-            handle: map_ptr.as_ptr().cast(),
-            unmap: Some(do_unmap),
-        };
-        let map_data_ptr = NonNull::from(&lv2_urid_map);
+        let map_data_ptr = NonNull::from(&map);
         let urid_map_feature = LV2Feature {
             uri: lv2_sys::LV2_URID__map.as_ptr().cast(),
             data: map_data_ptr.as_ptr().cast(),
         };
 
-        let unmap_data_ptr = NonNull::from(&lv2_urid_unmap);
+        let unmap_data_ptr = NonNull::from(&unmap);
         let urid_unmap_feature = LV2Feature {
             uri: lv2_sys::LV2_URID__unmap.as_ptr().cast(),
             data: unmap_data_ptr.as_ptr().cast(),
@@ -507,7 +521,7 @@ mod tests {
 
         let state = plugin.new_state_from_instance(
             &instance,
-            &mut lv2_urid_map,
+            &mut map,
             None,
             None,
             None,
@@ -517,35 +531,28 @@ mod tests {
             &features
         );
 
-        let res = state.unwrap().save(&mut lv2_urid_map, &mut lv2_urid_unmap, Some(plugin_uri), ".", "filename");
+        let res = state.unwrap().save(&mut map, &mut unmap, Some(plugin_uri), ".", "filename");
         assert!(res.is_ok());
 
         let subject = world.new_uri("http://lv2plug.in/plugins/eg-amp");
-        let state = world.new_state_from_file(&mut lv2_urid_map, Some(&subject), "filename");
+        let state = world.new_state_from_file(&mut map, Some(&subject), "filename");
         assert!(state.is_some());
     }
 
     #[test]
     fn test_new_from_instance() {
         let world = World::with_load_all();
-        let map = MapImpl::new();
-        let map_ptr = NonNull::from(&map);
+        let mut urid_map = UridMap::new();
+        let mut map = urid_map.as_lv2_urid_map();
+        let mut unmap = urid_map.as_lv2_urid_unmap();
 
-        let mut lv2_urid_map = lv2_raw::LV2UridMap {
-            handle: map_ptr.as_ptr().cast(),
-            map: do_map,
-        };
-        let mut lv2_urid_unmap = lv2_sys::LV2_URID_Unmap {
-            handle: map_ptr.as_ptr().cast(),
-            unmap: Some(do_unmap),
-        };
-        let map_data_ptr = NonNull::from(&lv2_urid_map);
+        let map_data_ptr = NonNull::from(&map);
         let urid_map_feature = LV2Feature {
             uri: lv2_sys::LV2_URID__map.as_ptr().cast(),
             data: map_data_ptr.as_ptr().cast(),
         };
 
-        let unmap_data_ptr = NonNull::from(&lv2_urid_unmap);
+        let unmap_data_ptr = NonNull::from(&unmap);
         let urid_unmap_feature = LV2Feature {
             uri: lv2_sys::LV2_URID__unmap.as_ptr().cast(),
             data: unmap_data_ptr.as_ptr().cast(),
@@ -561,7 +568,7 @@ mod tests {
 
         let state = plugin.new_state_from_instance(
             &instance,
-            &mut lv2_urid_map,
+            &mut map,
             None,
             None,
             None,
@@ -577,11 +584,11 @@ mod tests {
         state.set_label("my_label");
         assert!(state.label() == Some("my_label"));
 
-        let backup = state.to_string(&mut lv2_urid_map, &mut lv2_urid_unmap, plugin_uri, None);
+        let backup = state.to_string(&mut map, &mut unmap, plugin_uri, None);
         assert!(backup.is_some());
         let backup = backup.unwrap();
 
-        let saved_state = world.new_state_from_string(&mut lv2_urid_map, &backup);
+        let saved_state = world.new_state_from_string(&mut map, &backup);
         assert!(saved_state.is_some());
         let saved_state = saved_state.unwrap();
         assert!(saved_state.uri() == Some(plugin_uri_node));
