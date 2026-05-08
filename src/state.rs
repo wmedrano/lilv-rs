@@ -22,8 +22,8 @@ pub fn value<T>(obj: &T) -> Value {
 }
 
 /// Convert a generic port value to an object. The requested data type must be the same as that of the corresponding port.
-pub fn from_value<T>(value: &mut Value) -> &mut T {
-    unsafe { &mut *(*value as *mut T) }
+pub unsafe fn from_value<'a, T>(value: &'a Value) -> &'a mut T {
+    &mut *(*value as *mut T)
 }
 
 /// GetPortValue is the trait the user must implement to create a state from a plugin instance with [`crate::plugin::Plugin::new_state_from_instance()`].
