@@ -455,16 +455,26 @@ mod tests {
         std::ptr::null()
     }
 
-    struct UridMap {
+    struct Host {
         uri_id_map: MapImpl,
+        float_urid: lv2_raw::LV2Urid,
+        port_value: f32,
     }
-    impl UridMap {
-        pub fn new() -> UridMap {
-            Self {
+    impl Host {
+        pub fn new() -> Host {
+            let mut host = Self {
                 uri_id_map: MapImpl::new(),
-            }
+                float_urid: 0,
+                port_value: 42.,
+            };
+            host.float_urid = host.map(lv2_sys::LV2_ATOM__Float);
+            host
         }
-        pub fn as_lv2_urid_map(&mut self) -> lv2_raw::LV2UridMap {
+        pub fn map(&mut self, uri: &[u8]) -> lv2_raw::LV2Urid {
+            let map_ptr = NonNull::from(&self.uri_id_map);
+            do_map(map_ptr.as_ptr().cast(), uri.as_ptr().cast())
+        }
+        pub fn new_lv2_urid_map(&mut self) -> lv2_raw::LV2UridMap {
             let map_ptr = NonNull::from(&self.uri_id_map);
     
             lv2_raw::LV2UridMap {
@@ -472,7 +482,7 @@ mod tests {
                 map: do_map,
             }
         }
-        pub fn as_lv2_urid_unmap(&mut self) -> lv2_sys::LV2_URID_Unmap {
+        pub fn new_lv2_urid_unmap(&mut self) -> lv2_sys::LV2_URID_Unmap {
             let map_ptr = NonNull::from(&self.uri_id_map);
     
             lv2_sys::LV2_URID_Unmap {
@@ -481,24 +491,39 @@ mod tests {
             }
         }
     }
+    impl super::GetPortValue for Host {
+        fn get_port_value(&mut self, port_symbol: &str) -> (super::Value, u32, u32) {
+            assert!(port_symbol == "gain");
+            (super::value(&self.port_value), 4, self.float_urid)
+        }
+    }
+    impl super::SetPortValue for Host {
+        fn set_port_value(&mut self, port_symbol: &str, value: super::Value, size: u32, type_: u32) {
+            assert!(port_symbol == "gain");
+            unsafe { assert!(*super::from_value::<f32>(&value) == 42.); }
+            assert!(size == 4);
+            assert!(type_ == self.float_urid);
+        }
+    }
 
     #[test]
     fn test_new_from_world() {
         let world = World::with_load_all();
-        let mut urid_map = UridMap::new();
+        let mut host = Host::new();
 
         let subject = world.new_uri("http://lv2plug.in/plugins/eg-amp");
+        assert!(world.new_state(&mut host.new_lv2_urid_map(), &subject).is_some());
 
-        let state = world.new_state(&mut urid_map.as_lv2_urid_map(), &subject);
-        assert!(state.is_some());
+        let subject = world.new_uri("http://lv2plug.in/plugins/eg-scope");
+        assert!(world.new_state(&mut host.new_lv2_urid_map(), &subject).is_none());
     }
 
     #[test]
     fn test_new_from_file() {
         let world = World::with_load_all();
-        let mut urid_map = UridMap::new();
-        let mut map = urid_map.as_lv2_urid_map();
-        let mut unmap = urid_map.as_lv2_urid_unmap();
+        let mut host = Host::new();
+        let mut map = host.new_lv2_urid_map();
+        let mut unmap = host.new_lv2_urid_unmap();
 
         let map_data_ptr = NonNull::from(&map);
         let urid_map_feature = LV2Feature {
@@ -516,36 +541,35 @@ mod tests {
         let plugin_uri = "http://lv2plug.in/plugins/eg-amp";
         let plugin_uri_node = world.new_uri(plugin_uri);
         let plugin = world.plugins().plugin(&plugin_uri_node).unwrap();
-        let instance = unsafe{ plugin.instantiate(44100., &features)};
-        assert!(instance.is_some());
-        let instance = instance.unwrap();
+        let instance = unsafe{ plugin.instantiate(44100., &features).unwrap()};
 
-        let state = plugin.new_state_from_instance(
+        let mut state = plugin.new_state_from_instance(
             &instance,
             &mut map,
-            None,
-            None,
-            None,
-            None,
-            None,
+            Some("plugin_state/file_dir"),
+            Some("plugin_state/copy_dir"),
+            Some("plugin_state/link_dir"),
+            Some("plugin_state/save_dir"),
+            Some(&mut host),
             lv2_sys::LV2_State_Flags::LV2_STATE_IS_PORTABLE,
             &features
-        );
+        ).unwrap();
 
-        let res = state.unwrap().save(&mut map, &mut unmap, Some(plugin_uri), ".", "filename");
-        assert!(res.is_ok());
+        state.set_label("my_label");
+        assert!(state.save(&mut map, &mut unmap, Some(plugin_uri), "state_eg-amp", "eg-amp.ttl").is_ok());
 
         let subject = world.new_uri("http://lv2plug.in/plugins/eg-amp");
-        let state = world.new_state_from_file(&mut map, Some(&subject), "filename");
-        assert!(state.is_some());
+        let state = world.new_state_from_file(&mut map, Some(&subject), "state_eg-amp/eg-amp.ttl").unwrap();
+        
+       assert!(state.delete().is_ok());
     }
 
     #[test]
     fn test_new_from_instance() {
         let world = World::with_load_all();
-        let mut urid_map = UridMap::new();
-        let mut map = urid_map.as_lv2_urid_map();
-        let mut unmap = urid_map.as_lv2_urid_unmap();
+        let mut host = Host::new();
+        let mut map = host.new_lv2_urid_map();
+        let mut unmap = host.new_lv2_urid_unmap();
 
         let map_data_ptr = NonNull::from(&map);
         let urid_map_feature = LV2Feature {
@@ -563,36 +587,36 @@ mod tests {
         let plugin_uri = "http://lv2plug.in/plugins/eg-amp";
         let plugin_uri_node = world.new_uri(plugin_uri);
         let plugin = world.plugins().plugin(&plugin_uri_node).unwrap();
-        let instance = unsafe{ plugin.instantiate(44100., &features)};
-        assert!(instance.is_some());
-        let instance = instance.unwrap();
+        let instance = unsafe{ plugin.instantiate(44100., &features).unwrap()};
 
-        let state = plugin.new_state_from_instance(
+        let mut state = plugin.new_state_from_instance(
             &instance,
             &mut map,
             None,
             None,
             None,
             None,
-            None,
+            Some(&mut host),
             lv2_sys::LV2_State_Flags::LV2_STATE_IS_PORTABLE,
             &features
-        );
-        assert!(state.is_some());
-        let mut state = state.unwrap();
+        ).unwrap();
         assert!(state.plugin_uri() == plugin_uri_node);
         assert!(state.uri().is_none());
+        assert!(state.num_properties() == 0);
+
         state.set_label("my_label");
+        let v = 9.;
+        let float_urid = host.map(lv2_sys::LV2_ATOM__Float);
+        assert!(state.set_metadata::<f32>(1, &v, 4, float_urid, lv2_sys::LV2_State_Flags::LV2_STATE_IS_POD).is_ok());
+
+        let backup = state.to_string(&mut map, &mut unmap, plugin_uri, None).unwrap();
+
+        let saved_state = world.new_state_from_string(&mut map, &backup).unwrap();
+        assert!(saved_state.uri() == Some(plugin_uri_node));
         assert!(state.label() == Some("my_label"));
 
-        let backup = state.to_string(&mut map, &mut unmap, plugin_uri, None);
-        assert!(backup.is_some());
-        let backup = backup.unwrap();
+        state.emit_port_values(Some(&mut host));
 
-        let saved_state = world.new_state_from_string(&mut map, &backup);
-        assert!(saved_state.is_some());
-        let saved_state = saved_state.unwrap();
-        assert!(saved_state.uri() == Some(plugin_uri_node));
-        saved_state.restore(&instance, None, lv2_sys::LV2_State_Flags::LV2_STATE_IS_PORTABLE, &features);
+        saved_state.restore(&instance, Some(&mut host), lv2_sys::LV2_State_Flags::LV2_STATE_IS_PORTABLE, &features);
     }
 }
