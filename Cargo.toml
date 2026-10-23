@@ -8,12 +8,12 @@ keywords = ["lilv", "lv2", "audio"]
 license = "MIT"
 name = "lilv"
 readme = "README.md"
-version = "0.2.4"
+version = "0.3.0"
 
 [dependencies]
-lilv-sys = "0.2"
-lv2_raw = "0.2"
-parking_lot = "0.11"
+lilv-sys = "0.3"
+lv2_raw = "0.3"
+parking_lot = "0.13"
 
 [build-dependencies]
 pkg-config = "0.3"
