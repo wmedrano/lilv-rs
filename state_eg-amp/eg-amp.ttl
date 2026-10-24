@@ -1,0 +1,16 @@
+@prefix atom: <http://lv2plug.in/ns/ext/atom#> .
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+@prefix pset: <http://lv2plug.in/ns/ext/presets#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix state: <http://lv2plug.in/ns/ext/state#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://lv2plug.in/plugins/eg-amp>
+	a pset:Preset ;
+	lv2:appliesTo <http://lv2plug.in/plugins/eg-amp> ;
+	rdfs:label "my_label" ;
+	lv2:port [
+		lv2:symbol "gain" ;
+		pset:value 42.0
+	] .

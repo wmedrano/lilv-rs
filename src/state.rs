@@ -79,7 +79,18 @@ unsafe extern "C" fn set_port_value_func(
     }
 }
 
-#[derive(Clone)]
+/// An owned plugin state snapshot.
+///
+/// A state cannot be cloned: each snapshot exclusively owns its underlying
+/// Lilv allocation, which is freed when the state is dropped.
+///
+/// ```compile_fail
+/// use lilv::state::State;
+///
+/// fn duplicate(state: &State) -> State {
+///     state.clone()
+/// }
+/// ```
 pub struct State {
     pub(crate) world: Arc<Life>,
     pub(crate) inner: NonNull<lib::LilvState>,
@@ -507,6 +518,33 @@ mod tests {
     }
 
     #[test]
+    fn test_state_can_outlive_world() {
+        // Use an in-memory preset so this regression does not require any
+        // installed plugins or filesystem state.
+        let world = World::new();
+        let mut host = Host::new();
+        let state = world
+            .new_state_from_string(
+                &mut host.new_lv2_urid_map(),
+                r#"
+                @prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+                @prefix pset: <http://lv2plug.in/ns/ext/presets#> .
+                @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+                <urn:lilv:test:preset> a pset:Preset ;
+                    lv2:appliesTo <urn:lilv:test:plugin> ;
+                    rdfs:label "Ownership regression" .
+                "#,
+            )
+            .expect("the in-memory preset should load");
+        drop(world);
+        assert_eq!(state.label(), Some("Ownership regression"));
+        assert_eq!(state.plugin_uri().as_uri(), Some("urn:lilv:test:plugin"));
+        assert_eq!(state.uri().unwrap().as_uri(), Some("urn:lilv:test:preset"));
+        drop(state);
+    }
+
+    #[test]
     fn test_new_from_world() {
         let world = World::with_load_all();
         let mut host = Host::new();
@@ -521,6 +559,9 @@ mod tests {
     #[test]
     fn test_new_from_file() {
         let world = World::with_load_all();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let bundle_dir = temp_dir.path().join("preset.lv2");
+        let state_path = bundle_dir.join("eg-amp.ttl");
         let mut host = Host::new();
         let mut map = host.new_lv2_urid_map();
         let mut unmap = host.new_lv2_urid_unmap();
@@ -543,25 +584,44 @@ mod tests {
         let plugin = world.plugins().plugin(&plugin_uri_node).unwrap();
         let instance = unsafe{ plugin.instantiate(44100., &features).unwrap()};
 
-        let mut state = plugin.new_state_from_instance(
-            &instance,
-            &mut map,
-            Some("plugin_state/file_dir"),
-            Some("plugin_state/copy_dir"),
-            Some("plugin_state/link_dir"),
-            Some("plugin_state/save_dir"),
-            Some(&mut host),
-            lv2_sys::LV2_State_Flags::LV2_STATE_IS_PORTABLE,
-            &features
-        ).unwrap();
+        let mut state = plugin
+            .new_state_from_instance(
+                &instance,
+                &mut map,
+                None,
+                None,
+                None,
+                None,
+                Some(&mut host),
+                lv2_sys::LV2_State_Flags::LV2_STATE_IS_PORTABLE,
+                &features,
+            )
+            .unwrap();
 
         state.set_label("my_label");
-        assert!(state.save(&mut map, &mut unmap, Some(plugin_uri), "state_eg-amp", "eg-amp.ttl").is_ok());
+        let preset_uri = "urn:lilv:test:eg-amp-preset";
+        state
+            .save(
+                &mut map,
+                &mut unmap,
+                Some(preset_uri),
+                bundle_dir.to_str().unwrap(),
+                "eg-amp.ttl",
+            )
+            .unwrap();
 
-        let subject = world.new_uri("http://lv2plug.in/plugins/eg-amp");
-        let state = world.new_state_from_file(&mut map, Some(&subject), "state_eg-amp/eg-amp.ttl").unwrap();
-        
-       assert!(state.delete().is_ok());
+        let subject = world.new_uri(preset_uri);
+        let loaded = world
+            .new_state_from_file(&mut map, Some(&subject), state_path.to_str().unwrap())
+            .unwrap();
+        assert!(state == loaded);
+        assert_eq!(loaded.label(), Some("my_label"));
+        assert!(loaded.plugin_uri() == plugin_uri_node);
+        assert!(loaded.uri() == Some(subject));
+        loaded.emit_port_values(Some(&mut host));
+
+        loaded.delete().unwrap();
+        assert!(!bundle_dir.exists(), "deletion should remove the saved bundle");
     }
 
     #[test]
