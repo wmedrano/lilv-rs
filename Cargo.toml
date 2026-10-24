@@ -13,6 +13,7 @@ version = "0.3.0"
 [dependencies]
 lilv-sys = "0.3"
 lv2_raw = "0.3"
+lv2-sys = "2"
 parking_lot = "0.13"
 
 [build-dependencies]
