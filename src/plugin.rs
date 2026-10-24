@@ -1,7 +1,7 @@
 use crate::instance::Instance;
 use crate::node::{Node, Nodes};
 use crate::port::{FloatRanges, Port};
-use crate::state::{GetPortValue, State};
+use crate::state::{GetPortValue, State, StateDirs};
 use crate::ui::Uis;
 use crate::world::Life;
 use lilv_sys as lib;
@@ -550,6 +550,7 @@ impl Plugin {
     /// 
     /// See <a href=https://lv2plug.in/ns/ext/state>LV2 state</a> from the
     /// LV2 State extension for details on the `flags` and `features` parameters.
+    #[allow(clippy::too_many_arguments)]
     pub fn new_state_from_instance<'a, FS>(
         &self,
         instance: &Instance,
@@ -565,7 +566,20 @@ impl Plugin {
     where
         FS: IntoIterator<Item = &'a LV2Feature>,
     {
-        State::new_from_instance(self, instance, map, file_dir, copy_dir, link_dir, save_dir, user, flags, features)
+        State::new_from_instance(
+            self,
+            instance,
+            map,
+            StateDirs {
+                file_dir,
+                copy_dir,
+                link_dir,
+                save_dir,
+            },
+            user,
+            flags,
+            features,
+        )
     }
 }
 
@@ -838,7 +852,6 @@ pub struct ClassIter {
 impl Iterator for ClassIter {
     type Item = Class;
 
-    #[must_use]
     fn next(&mut self) -> Option<Class> {
         let _life = self.life.inner.lock();
         let ptr = unsafe { lib::lilv_plugin_classes_get(self.classes, self.iter) };

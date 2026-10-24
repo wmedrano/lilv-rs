@@ -22,7 +22,15 @@ pub fn value<T>(obj: &T) -> Value {
 }
 
 /// Convert a generic port value to an object. The requested data type must be the same as that of the corresponding port.
-pub unsafe fn from_value<'a, T>(value: &'a Value) -> &'a mut T {
+///
+/// # Safety
+///
+/// The caller must ensure that `value` points to valid data of type `T`, that
+/// the pointee is not accessed through any other reference for the lifetime of
+/// the returned reference, and that the requested type matches the type of the
+/// corresponding port.
+#[allow(clippy::mut_from_ref)]
+pub unsafe fn from_value<T>(value: &Value) -> &mut T {
     &mut *(*value as *mut T)
 }
 
@@ -96,6 +104,13 @@ pub struct State {
     pub(crate) inner: NonNull<lib::LilvState>,
 }
 
+pub(crate) struct StateDirs<'a> {
+    pub(crate) file_dir: Option<&'a str>,
+    pub(crate) copy_dir: Option<&'a str>,
+    pub(crate) link_dir: Option<&'a str>,
+    pub(crate) save_dir: Option<&'a str>,
+}
+
 impl State {
     pub(crate) fn new(world: Arc<Life>, state_ptr: *mut lib::LilvState) -> Option<State> {
         Some(State {
@@ -104,14 +119,11 @@ impl State {
         })
     }
 
-    pub(crate) fn new_from_instance<'a, FS>(
+    pub(crate) fn new_from_instance<'a, 'b, FS>(
         plugin: &Plugin,
         instance: &Instance,
         map: &mut lv2_raw::LV2UridMap,
-        file_dir: Option<&str>,
-        copy_dir: Option<&str>,
-        link_dir: Option<&str>,
-        save_dir: Option<&str>,
+        dirs: StateDirs<'b>,
         user: Option<&mut dyn GetPortValue>,
         flags: lv2_sys::LV2_State_Flags,
         features: FS,
@@ -119,6 +131,12 @@ impl State {
     where
         FS: IntoIterator<Item = &'a LV2Feature>,
     {
+        let StateDirs {
+            file_dir,
+            copy_dir,
+            link_dir,
+            save_dir,
+        } = dirs;
         let plugin_ptr = plugin.inner.as_ptr();
         let instance = instance.inner.as_ptr();
         let file_d = CString::new(file_dir.unwrap_or_default()).unwrap();

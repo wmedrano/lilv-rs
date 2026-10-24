@@ -143,10 +143,7 @@ impl ActiveInstance {
     /// Calling external code may be unsafe.
     #[allow(clippy::cast_possible_truncation)]
     pub unsafe fn run(&mut self, sample_count: usize) {
-        let sample_count = match u32::try_from(sample_count) {
-            Ok(sample_count) => sample_count,
-            Err(_) => u32::MAX,
-        };
+        let sample_count = u32::try_from(sample_count).unwrap_or(u32::MAX);
         lib::lilv_instance_run(self.instance().inner.as_ptr(), sample_count);
     }
 
