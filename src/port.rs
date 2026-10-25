@@ -45,7 +45,11 @@ impl Port {
         let predicate = predicate.inner.as_ptr();
         let inner = unsafe { lib::lilv_port_get_value(plugin, port, predicate) };
         let world = self.plugin.life.clone();
-        Nodes { inner, life: world }
+        Nodes {
+            _ui_owner: None,
+            inner,
+            life: world,
+        }
     }
 
     /// Get a single property value of a port.
@@ -78,7 +82,11 @@ impl Port {
         let port = self.inner.as_ptr();
         let inner = unsafe { lib::lilv_port_get_properties(plugin, port) };
         let world = self.plugin.life.clone();
-        Nodes { inner, life: world }
+        Nodes {
+            _ui_owner: None,
+            inner,
+            life: world,
+        }
     }
 
     /// Returns true if the port has the given property.
@@ -170,7 +178,11 @@ impl Port {
         let port = self.inner.as_ptr();
         let inner = unsafe { lib::lilv_port_get_classes(plugin, port) };
         let world = self.plugin.life.clone();
-        Nodes { inner, life: world }
+        Nodes {
+            _ui_owner: None,
+            inner,
+            life: world,
+        }
     }
 
     /// Returns `true` if the port is of the given type.

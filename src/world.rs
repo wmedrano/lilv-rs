@@ -327,7 +327,11 @@ impl World {
         let inner =
             unsafe { lib::lilv_world_find_nodes(world.as_ptr(), subject, predicate, object) };
         let world = self.life.clone();
-        Nodes { inner, life: world }
+        Nodes {
+            _ui_owner: None,
+            inner,
+            life: world,
+        }
     }
 
     /// Find a single node that matches a pattern. Exactly one of `subject`, `predicate`, or

@@ -2,7 +2,7 @@ use crate::instance::Instance;
 use crate::node::{Node, Nodes};
 use crate::port::{FloatRanges, Port};
 use crate::state::{GetPortValue, State, StateDirs};
-use crate::ui::Uis;
+use crate::ui::{UiCollection, Uis};
 use crate::world::Life;
 use lilv_sys as lib;
 use lv2_raw::LV2Feature;
@@ -10,6 +10,7 @@ use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::ptr::NonNull;
+use std::rc::Rc;
 use std::sync::Arc;
 
 unsafe impl Send for Plugin {}
@@ -76,6 +77,7 @@ impl Plugin {
         let plugin = self.inner.as_ptr();
 
         Nodes {
+            _ui_owner: None,
             inner: unsafe { lib::lilv_plugin_get_data_uris(plugin) },
             life: self.life.clone(),
         }
@@ -147,6 +149,7 @@ impl Plugin {
         let predicate = predicate.inner.as_ptr();
 
         Nodes {
+            _ui_owner: None,
             inner: unsafe { lib::lilv_plugin_get_value(plugin, predicate) },
             life: self.life.clone(),
         }
@@ -169,7 +172,11 @@ impl Plugin {
         let plugin = self.inner.as_ptr();
         let inner = unsafe { lib::lilv_plugin_get_supported_features(plugin) };
         let world = self.life.clone();
-        Nodes { inner, life: world }
+        Nodes {
+            _ui_owner: None,
+            inner,
+            life: world,
+        }
     }
 
     /// The set of features that are required to instantiate the plugin.
@@ -179,7 +186,11 @@ impl Plugin {
         let plugin = self.inner.as_ptr();
         let inner = unsafe { lib::lilv_plugin_get_required_features(plugin) };
         let world = self.life.clone();
-        Nodes { inner, life: world }
+        Nodes {
+            _ui_owner: None,
+            inner,
+            life: world,
+        }
     }
 
     /// The set of features that are optional to instantiate the plugin.
@@ -189,7 +200,11 @@ impl Plugin {
         let plugin = self.inner.as_ptr();
         let inner = unsafe { lib::lilv_plugin_get_optional_features(plugin) };
         let world = self.life.clone();
-        Nodes { inner, life: world }
+        Nodes {
+            _ui_owner: None,
+            inner,
+            life: world,
+        }
     }
 
     /// Returns `true` if the plugin has extension data for `uri`.
@@ -211,7 +226,11 @@ impl Plugin {
         Some({
             let inner = unsafe { lib::lilv_plugin_get_extension_data(plugin) };
             let world = self.life.clone();
-            Nodes { inner, life: world }
+            Nodes {
+                _ui_owner: None,
+                inner,
+                life: world,
+            }
         })
     }
 
@@ -460,7 +479,11 @@ impl Plugin {
         Some({
             let inner = unsafe { lib::lilv_plugin_get_related(plugin, plugin_type) };
             let world = self.life.clone();
-            Nodes { inner, life: world }
+            Nodes {
+                _ui_owner: None,
+                inner,
+                life: world,
+            }
         })
     }
 
@@ -470,8 +493,13 @@ impl Plugin {
         let _life = self.life.inner.lock();
         let plugin = self.inner.as_ptr();
 
+        let inner = NonNull::new(unsafe { lib::lilv_plugin_get_uis(plugin) })?;
         Some(Uis {
-            inner: NonNull::new(unsafe { lib::lilv_plugin_get_uis(plugin) })?,
+            owner: Rc::new(UiCollection {
+                inner,
+                life: self.life.clone(),
+            }),
+            inner,
             life: self.life.clone(),
             plugin: self.clone(),
         })

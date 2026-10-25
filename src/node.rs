@@ -1,9 +1,11 @@
+use crate::ui::UiCollection;
 use crate::world::Life;
 use lilv_sys as lib;
 use std::borrow::Borrow;
 use std::ffi::CStr;
 use std::fmt::Debug;
 use std::ptr::NonNull;
+use std::rc::Rc;
 use std::sync::Arc;
 
 extern "C" {
@@ -231,6 +233,7 @@ impl Drop for Node {
 
 /// A collection of `Node`.
 pub struct Nodes {
+    pub(crate) _ui_owner: Option<Rc<UiCollection>>,
     pub(crate) inner: *const lib::LilvNodes,
     pub(crate) life: Arc<Life>,
 }
@@ -266,6 +269,7 @@ impl Nodes {
 
         Nodes {
             inner: unsafe { lib::lilv_nodes_merge(a, b) },
+            _ui_owner: None,
             life: self.life.clone(),
         }
     }
@@ -319,13 +323,22 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         let _life = self.life.inner.lock();
+        if unsafe { lib::lilv_nodes_is_end(self.nodes.borrow().inner, self.inner) } {
+            return None;
+        }
         let node = unsafe { lib::lilv_nodes_get(self.nodes.borrow().inner, self.inner) } as *mut _;
         let next = Some({
             let ptr = NonNull::new(node)?;
+            let owned = self.nodes.borrow()._ui_owner.is_some();
+            let ptr = if owned {
+                NonNull::new(unsafe { lib::lilv_node_duplicate(ptr.as_ptr()) })?
+            } else {
+                ptr
+            };
             let world = self.life.clone();
             Node {
                 inner: ptr,
-                borrowed: true,
+                borrowed: !owned,
                 life: world,
             }
         });
@@ -360,6 +373,7 @@ mod tests {
         let world = World::new();
         let nodes = Nodes {
             inner: std::ptr::null(),
+            _ui_owner: None,
             life: world.life,
         };
         assert_eq!(nodes.count(), 0);
